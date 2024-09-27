@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -13,42 +12,7 @@ import (
 	"github.com/roundtown-app/roundtown-api/internal/tools"
 )
 
-func (h *Handlers) handleGetEvent(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	eventID := chi.URLParam(r, "eventID")
-
-	event := new(api.Event)
-	err := h.DB.NewSelect().
-		Model(event).
-		Where("id = ?", eventID).
-		Scan(ctx)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Event not found", http.StatusNotFound)
-			return
-		}
-		slog.Error("Error retrieving event", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	response := api.EventResponse{
-		Name: event.Title, // Assuming the Name field in EventResponse corresponds to Title in Event
-		Code: http.StatusOK,
-		// Add other fields as needed
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		slog.Error("Error encoding response", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-}
-
-func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) handleGetPlan(w http.ResponseWriter, r *http.Request) {
 	var params = api.EventParams{}
 	var decoder *schema.Decoder = schema.NewDecoder()
 	var err error
@@ -68,7 +32,48 @@ func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var eventDetails *tools.EventDetails = (*database).PutEvents(chi.URLParam(r, "eventID"))
+	var eventDetails *tools.EventDetails = (*database).GetPlan(chi.URLParam(r, "planID"))
+	if eventDetails == nil {
+		slog.Error("Could not retrieve event")
+		api.InternalErrorHandler(w)
+		return
+	}
+
+	var response = api.EventResponse{
+		Name: (*eventDetails).Name,
+		Code: http.StatusOK,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		slog.Error(err.Error())
+		api.InternalErrorHandler(w)
+		return
+	}
+}
+
+func (h *Handlers) handlePutPlan(w http.ResponseWriter, r *http.Request) {
+	var params = api.EventParams{}
+	var decoder *schema.Decoder = schema.NewDecoder()
+	var err error
+
+	err = decoder.Decode(&params, r.URL.Query())
+
+	if err != nil {
+		slog.Error(err.Error())
+		api.InternalErrorHandler(w)
+		return
+	}
+
+	var database *tools.DatabaseInterface
+	database, err = tools.NewDatabase()
+	if err != nil {
+		api.InternalErrorHandler(w)
+		return
+	}
+
+	var eventDetails *tools.EventDetails = (*database).PutPlan(chi.URLParam(r, "planID"))
 	if eventDetails == nil {
 		slog.Error("Could not update event")
 		api.InternalErrorHandler(w)
@@ -88,7 +93,7 @@ func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handlers) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) handleDeletePlan(w http.ResponseWriter, r *http.Request) {
 	var params = api.EventParams{}
 	var decoder *schema.Decoder = schema.NewDecoder()
 	var err error
@@ -108,7 +113,7 @@ func (h *Handlers) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var eventDetails *tools.EventDetails = (*database).DeleteEvents(chi.URLParam(r, "eventID"))
+	var eventDetails *tools.EventDetails = (*database).DeletePlan(chi.URLParam(r, "planID"))
 	if eventDetails == nil {
 		slog.Error("Could not update event")
 		api.InternalErrorHandler(w)
@@ -128,7 +133,7 @@ func (h *Handlers) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) handlePostPlan(w http.ResponseWriter, r *http.Request) {
 	var params = api.EventParams{}
 	var decoder *schema.Decoder = schema.NewDecoder()
 	var err error
@@ -148,7 +153,7 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var eventDetails *tools.EventDetails = (*database).PostEvents()
+	var eventDetails *tools.EventDetails = (*database).PostPlan()
 	if eventDetails == nil {
 		slog.Error("Could not update event")
 		api.InternalErrorHandler(w)
