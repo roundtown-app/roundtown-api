@@ -38,7 +38,6 @@ type EventUpdate struct {
 	Title         *string         `json:"title"`
 	Description   *string         `json:"description"`
 	Detailed      *string         `json:"detailed"`
-	ActivityCount *int            `json:"activity_count"`
 	Price         *int            `json:"price"`
 	Sponsor       *int            `json:"sponsor"`
 	IsDeal        *bool           `json:"is_deal"`
@@ -47,11 +46,11 @@ type EventUpdate struct {
 	Recurring     *int            `json:"recurring"`
 	VenueID       *uuid.UUID      `json:"venue_id"`
 	Categories    []string        `json:"categories"`
-	Location      *LocationUpdate `json:"location"`
+	Location      *EventLocationUpdate `json:"location"`
 	Assets        []string        `json:"assets"`
 }
 
-type LocationUpdate struct {
+type EventLocationUpdate struct {
 	ID        int      `json:"id"`
 	Longitude *float64 `json:"longitude"`
 	Latitude  *float64 `json:"latitude"`
@@ -203,7 +202,6 @@ func (h *Handlers) updateEvent(ctx context.Context, tx bun.Tx, eventID uuid.UUID
 		Set("title = COALESCE(?, title)", update.Title).
 		Set("description = COALESCE(?, description)", update.Description).
 		Set("detailed = COALESCE(?, detailed)", update.Detailed).
-		Set("activity_count = COALESCE(?, activity_count)", update.ActivityCount).
 		Set("price = COALESCE(?, price)", update.Price).
 		Set("sponsor = COALESCE(?, sponsor)", update.Sponsor).
 		Set("is_deal = COALESCE(?, is_deal)", update.IsDeal).
@@ -243,7 +241,7 @@ func (h *Handlers) updateEvent(ctx context.Context, tx bun.Tx, eventID uuid.UUID
 	return nil
 }
 
-func (h *Handlers) updateEventLocation(ctx context.Context, tx bun.Tx, eventID uuid.UUID, location *LocationUpdate) error {
+func (h *Handlers) updateEventLocation(ctx context.Context, tx bun.Tx, eventID uuid.UUID, location *EventLocationUpdate) error {
 	_, err := tx.NewUpdate().
 		Model(&api.EventLocation{}).
 		Where("id = ?", location.ID).
