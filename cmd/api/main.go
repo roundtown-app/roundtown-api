@@ -13,6 +13,8 @@ import (
 func main() {
 	slog.Info("Starting Roundtown API")
 
+	recServerURL := ""
+
 	dsn := "postgres://username:password@localhost:5432/database_name?sslmode=disable"
 	database, db_err := db.NewDB(dsn)
 	if db_err != nil {
@@ -22,7 +24,7 @@ func main() {
 
 	var router *chi.Mux = chi.NewRouter()
 
-	h := handlers.NewHandler(database)
+	h := handlers.NewHandler(database, recServerURL)
 	h.Handler(router)
 
 	slog.Info("Started Roundtown API")

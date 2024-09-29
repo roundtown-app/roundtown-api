@@ -1,136 +1,58 @@
 package handlers
 
 import (
-	"encoding/json"
-	"log/slog"
+	"io"
 	"net/http"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/gorilla/schema"
-
-	"github.com/roundtown-app/roundtown-api/api"
-	"github.com/roundtown-app/roundtown-api/internal/tools"
 )
 
+func (h *Handlers) forwardRequest(w http.ResponseWriter, r *http.Request, url string) {
+	resp, err := http.Get(url)
+	if err != nil {
+		http.Error(w, "Error fetching recommendations", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}
+
 func (h *Handlers) handleGetFeedRec(w http.ResponseWriter, r *http.Request) {
-	var params = api.EventParams{}
-	var decoder *schema.Decoder = schema.NewDecoder()
-	var err error
-
-	err = decoder.Decode(&params, r.URL.Query())
-
-	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
+	ctx := r.Context()
+	userID, ok := ctx.Value("userID").(string)
+	if !ok {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
 
-	var database *tools.DatabaseInterface
-	database, err = tools.NewDatabase()
-	if err != nil {
-		api.InternalErrorHandler(w)
-		return
-	}
+	url := h.RecommendationServerURL + "/feed-recs/" + userID
 
-	var eventDetails *tools.EventDetails = (*database).GetEvent(chi.URLParam(r, "eventID"))
-	if eventDetails == nil {
-		slog.Error("Could not retrieve event")
-		api.InternalErrorHandler(w)
-		return
-	}
-
-	var response = api.EventResponse{
-		Name: (*eventDetails).Name,
-		Code: http.StatusOK,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
-		return
-	}
+	h.forwardRequest(w, r, url)
 }
 
 func (h *Handlers) handleGetPlanRec(w http.ResponseWriter, r *http.Request) {
-	var params = api.EventParams{}
-	var decoder *schema.Decoder = schema.NewDecoder()
-	var err error
-
-	err = decoder.Decode(&params, r.URL.Query())
-
-	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
+	ctx := r.Context()
+	userID, ok := ctx.Value("userID").(string)
+	if !ok {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
 
-	var database *tools.DatabaseInterface
-	database, err = tools.NewDatabase()
-	if err != nil {
-		api.InternalErrorHandler(w)
-		return
-	}
+	url := h.RecommendationServerURL + "/plan-recs/" + userID
 
-	var eventDetails *tools.EventDetails = (*database).GetEvent(chi.URLParam(r, "eventID"))
-	if eventDetails == nil {
-		slog.Error("Could not retrieve event")
-		api.InternalErrorHandler(w)
-		return
-	}
-
-	var response = api.EventResponse{
-		Name: (*eventDetails).Name,
-		Code: http.StatusOK,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
-		return
-	}
+	h.forwardRequest(w, r, url)
 }
 
 func (h *Handlers) handleGetEBRec(w http.ResponseWriter, r *http.Request) {
-	var params = api.EventParams{}
-	var decoder *schema.Decoder = schema.NewDecoder()
-	var err error
-
-	err = decoder.Decode(&params, r.URL.Query())
-
-	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
+	ctx := r.Context()
+	userID, ok := ctx.Value("userID").(string)
+	if !ok {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
 
-	var database *tools.DatabaseInterface
-	database, err = tools.NewDatabase()
-	if err != nil {
-		api.InternalErrorHandler(w)
-		return
-	}
+	url := h.RecommendationServerURL + "/event-based-recs/" + userID
 
-	var eventDetails *tools.EventDetails = (*database).GetEvent(chi.URLParam(r, "eventID"))
-	if eventDetails == nil {
-		slog.Error("Could not retrieve event")
-		api.InternalErrorHandler(w)
-		return
-	}
-
-	var response = api.EventResponse{
-		Name: (*eventDetails).Name,
-		Code: http.StatusOK,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
-		return
-	}
+	h.forwardRequest(w, r, url)
 }

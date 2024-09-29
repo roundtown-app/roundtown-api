@@ -9,11 +9,12 @@ import (
 )
 
 type Handlers struct {
-	DB *db.DB
+	DB                      *db.DB
+	RecommendationServerURL string
 }
 
-func NewHandler(db *db.DB) *Handlers {
-	return &Handlers{DB: db}
+func NewHandler(db *db.DB, recServerURL string) *Handlers {
+	return &Handlers{DB: db, RecommendationServerURL: recServerURL}
 }
 
 func (h *Handlers) Handler(router *chi.Mux) {
