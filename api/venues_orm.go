@@ -50,6 +50,14 @@ type VenueRating struct {
 type VenueAssets struct {
 	bun.BaseModel `bun:"table:venue_assets,alias:va"`
 
-	VenueID  uuid.UUID `bun:"venue_id,pk"`
+	VenueID uuid.UUID `bun:"venue_id,pk"`
 	AssetID string    `bun:"asset_id,pk"`
+}
+
+type VenuePopulation struct {
+	bun.BaseModel `bun:"table:venue_population,alias:vp"`
+
+	VenueID     uuid.UUID `bun:"venue_id,pk"`
+	UserCount   int       `bun:"user_count"`
+	LastUpdated time.Time `bun:"last_updated,nullzero,default:current_timestamp"`
 }

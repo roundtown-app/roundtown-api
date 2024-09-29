@@ -57,3 +57,11 @@ type EventAssets struct {
 	EventID uuid.UUID `bun:"event_id,pk"`
 	AssetID string    `bun:"asset_id,pk"`
 }
+
+type EventPopulation struct {
+	bun.BaseModel `bun:"table:event_population,alias:ep"`
+
+	EventID uuid.UUID `bun:"event_id,pk"`
+	UserCount int `bun:"user_count"`
+	LastUpdated time.Time `bun:"last_updated,nullzero,default:current_timestamp"`
+}

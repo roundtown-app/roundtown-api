@@ -17,6 +17,15 @@ type User struct {
 	AccountCreated time.Time `bun:"account_created,nullzero,default:current_timestamp"`
 }
 
+type UserLocations struct {
+	bun.BaseModel `bun:"table:user_locations,alias:ul"`
+
+	UserID        uuid.UUID `bun:"user_id,pk,type:uuid"`
+	Longitude float64 `bun:"longitude"`
+	Latitude  float64 `bun:"latitude"`
+	LastUpdated time.Time `bun:"last_updated,nullzero,default:current_timestamp"`
+}
+
 type Friend struct {
 	bun.BaseModel `bun:"table:friends,alias:f"`
 
