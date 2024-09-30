@@ -2,173 +2,149 @@ package handlers
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/gorilla/schema"
+	"github.com/google/uuid"
 
 	"github.com/roundtown-app/roundtown-api/api"
-	"github.com/roundtown-app/roundtown-api/internal/tools"
 )
 
+// ----- PUT helper struct -----
+
+type UserUpdate struct {
+	Username *string `json:"username"`
+}
+
+// ----- Request handlers -----
+
 func (h *Handlers) handleGetUser(w http.ResponseWriter, r *http.Request) {
-	var params = api.EventParams{}
-	var decoder *schema.Decoder = schema.NewDecoder()
-	var err error
-
-	err = decoder.Decode(&params, r.URL.Query())
-
+	userID, err := uuid.Parse(chi.URLParam(r, "userID"))
 	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	var database *tools.DatabaseInterface
-	database, err = tools.NewDatabase()
+	user := new(api.User)
+	err = h.DB.NewSelect().Model(user).Where("user_id = ?", userID).Scan(r.Context())
 	if err != nil {
-		api.InternalErrorHandler(w)
+		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	var eventDetails *tools.EventDetails = (*database).GetUser(chi.URLParam(r, "userID"))
-	if eventDetails == nil {
-		slog.Error("Could not retrieve event")
-		api.InternalErrorHandler(w)
-		return
-	}
-
-	var response = api.EventResponse{
-		Name: (*eventDetails).Name,
-		Code: http.StatusOK,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
-		return
-	}
+	json.NewEncoder(w).Encode(user)
 }
 
 func (h *Handlers) handlePutUser(w http.ResponseWriter, r *http.Request) {
-	var params = api.EventParams{}
-	var decoder *schema.Decoder = schema.NewDecoder()
-	var err error
+	var user UserUpdate
+	ctx := r.Context()
 
-	err = decoder.Decode(&params, r.URL.Query())
+	userID, ok := ctx.Value("userID").(string)
+	if !ok {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	_, err = h.DB.NewUpdate().Model(&user).Where("user_id = ?", userID).Exec(ctx)
+	if err != nil {
+		http.Error(w, "Failed to update user", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handlers) handlePutUserLocation(w http.ResponseWriter, r *http.Request) {
+	var location api.UserLocations
+
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&location)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	location.UserID, err = uuid.Parse(userID)
+	if err != nil {
+		location.UserID = uuid.Nil
+	}
+
+	location.LastUpdated = time.Now()
+
+	_, err = h.DB.NewInsert().Model(&location).
+		On("CONFLICT (user_id) DO UPDATE").
+		Set("longitude = EXCLUDED.longitude").
+		Set("latitude = EXCLUDED.latitude").
+		Set("last_updated = EXCLUDED.last_updated").
+		Exec(r.Context())
 
 	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
+		http.Error(w, "Failed to update user location", http.StatusInternalServerError)
 		return
 	}
 
-	var database *tools.DatabaseInterface
-	database, err = tools.NewDatabase()
-	if err != nil {
-		api.InternalErrorHandler(w)
-		return
-	}
-
-	var eventDetails *tools.EventDetails = (*database).PutUser(chi.URLParam(r, "userID"))
-	if eventDetails == nil {
-		slog.Error("Could not update event")
-		api.InternalErrorHandler(w)
-		return
-	}
-
-	var response = api.EventResponse{
-		Code: http.StatusOK,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
-		return
-	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handlers) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
-	var params = api.EventParams{}
-	var decoder *schema.Decoder = schema.NewDecoder()
-	var err error
+	var user api.User
 
-	err = decoder.Decode(&params, r.URL.Query())
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
 
+	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	var database *tools.DatabaseInterface
-	database, err = tools.NewDatabase()
+	user.UserID, err = uuid.Parse(userID)
 	if err != nil {
-		api.InternalErrorHandler(w)
-		return
+		user.UserID = uuid.Nil
 	}
 
-	var eventDetails *tools.EventDetails = (*database).DeleteUser(chi.URLParam(r, "userID"))
-	if eventDetails == nil {
-		slog.Error("Could not update event")
-		api.InternalErrorHandler(w)
-		return
-	}
-
-	var response = api.EventResponse{
-		Code: http.StatusOK,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
+	_, err = h.DB.NewDelete().Model(&user).Where("user_id = ?", user.UserID).Exec(r.Context())
 	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
+		http.Error(w, "Failed to delete user", http.StatusInternalServerError)
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handlers) handlePostUser(w http.ResponseWriter, r *http.Request) {
-	var params = api.EventParams{}
-	var decoder *schema.Decoder = schema.NewDecoder()
-	var err error
-
-	err = decoder.Decode(&params, r.URL.Query())
-
+	var user api.User
+	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	var database *tools.DatabaseInterface
-	database, err = tools.NewDatabase()
+	user.UserID = uuid.New()
+	user.AccountCreated = time.Now()
+	user.AccountType = "user"
+
+	_, err = h.DB.NewInsert().Model(&user).Exec(r.Context())
 	if err != nil {
-		api.InternalErrorHandler(w)
+		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		return
 	}
 
-	var eventDetails *tools.EventDetails = (*database).PostUser()
-	if eventDetails == nil {
-		slog.Error("Could not update event")
-		api.InternalErrorHandler(w)
-		return
-	}
-
-	var response = api.EventResponse{
-		Code: http.StatusOK,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		slog.Error(err.Error())
-		api.InternalErrorHandler(w)
-		return
-	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(user)
 }

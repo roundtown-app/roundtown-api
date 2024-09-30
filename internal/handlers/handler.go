@@ -46,8 +46,9 @@ func (h *Handlers) Handler(router *chi.Mux) {
 
 		apiRouter.Route("/users", func(userRouter chi.Router) {
 			userRouter.Get("/{userID}", h.handleGetUser)
-			userRouter.Put("/{userID}", h.handlePutUser)
-			userRouter.Delete("/{userID}", h.handleDeleteUser)
+			userRouter.Put("/", h.handlePutUser)
+			userRouter.Put("/updateLocation", h.handlePutUser)
+			userRouter.Delete("/", h.handleDeleteUser)
 			userRouter.Post("/", h.handlePostUser)
 		})
 
