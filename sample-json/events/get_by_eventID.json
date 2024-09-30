@@ -1,0 +1,38 @@
+{
+    "event": {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "title": "Summer Music Festival",
+      "description": "Annual outdoor music festival featuring local and international artists",
+      "detailed": "Join us for a weekend of great music, food, and fun...",
+      "price": 1,
+      "sponsor": 2,
+      "is_deal": false,
+      "starting_time": "2024-07-15T18:00:00Z",
+      "ending_time": "2024-07-17T23:00:00Z",
+      "recurring": 0,
+      "venue_id": "98765432-e89b-12d3-a456-426614174000",
+      "owner_id": "abcdef12-e89b-12d3-a456-426614174000",
+      "location_id": 1
+    },
+    "categories": [
+      "Music",
+      "Festival"
+    ],
+    "location": {
+      "longitude": -122.4194,
+      "latitude": 37.7749,
+      "address": "Golden Gate Park, San Francisco, CA 94122"
+    },
+    "assets": [
+      "asset1",
+      "asset2"
+    ],
+    "population": {
+      "user_count": 1500,
+      "last_updated": "2024-07-15T20:30:00Z"
+    },
+    "is_saved": true,
+    "is_visited": false,
+    "is_shared_from": false,
+    "is_shared_to": true
+  }

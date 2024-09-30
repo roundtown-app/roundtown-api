@@ -1,0 +1,20 @@
+{
+    "event": {
+      "title": "Tech Conference 2024",
+      "description": "Annual technology conference featuring industry leaders and innovative startups",
+      "detailed": "Join us for three days of cutting-edge presentations, workshops, and networking opportunities...",
+      "price": 10000,
+      "is_deal": false,
+      "starting_time": "2024-09-15T09:00:00Z",
+      "ending_time": "2024-09-17T18:00:00Z",
+      "recurring": 0,
+      "venue_id": "abcdef12-e89b-12d3-a456-426614174000",
+      "owner_id": "98765432-e89b-12d3-a456-426614174000"
+    },
+    "categories": ["Technology", "Conference", "Networking"],
+    "location": {
+      "longitude": -122.4194,
+      "latitude": 37.7749,
+      "address": "Moscone Center, 747 Howard St, San Francisco, CA 94103"
+    }
+  }

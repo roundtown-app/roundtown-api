@@ -1,0 +1,15 @@
+{
+    "title": "Updated Coffee Corner",
+    "description": "An updated charming local coffee shop",
+    "detailed": "Our newly renovated coffee shop offers an even warmer atmosphere with freshly brewed artisanal coffee, homemade pastries, and a new selection of light lunch options.",
+    "price": 2,
+    "hidden": false,
+    "categories": ["coffee", "cafe", "lunch"],
+    "location": {
+      "id": 1,
+      "longitude": -122.4195,
+      "latitude": 37.7750,
+      "address": "123 Main St, San Francisco, CA 94122"
+    },
+    "assets": ["asset123", "asset456"]
+}

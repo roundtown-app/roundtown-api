@@ -1,0 +1,32 @@
+{
+    "venue": {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "title": "Cozy Coffee Corner",
+      "description": "A charming local coffee shop",
+      "detailed": "Our coffee shop offers a warm atmosphere with freshly brewed artisanal coffee and homemade pastries.",
+      "price": 2,
+      "sponsor": 0,
+      "hidden": false,
+      "owner_id": "098f6bcd-4621-3373-8ade-4e832627b4f6"
+    },
+    "categories": [
+      "coffee", 
+      "cafe"
+    ],
+    "location": {
+      "longitude": -122.4194,
+      "latitude": 37.7749,
+      "address": "123 Main St, San Francisco, CA 94122"
+    },
+    "assets": [
+      "asset123"
+    ],
+    "population": {
+      "user_count": 15,
+      "last_updated": "2023-09-30T15:45:00Z"
+    },
+    "is_saved": true,
+    "is_visited": false,
+    "is_shared_from": false,
+    "is_shared_to": true
+  }
