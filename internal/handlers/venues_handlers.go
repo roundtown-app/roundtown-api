@@ -53,6 +53,21 @@ type VenueLocationUpdate struct {
 	Address   *string  `json:"address"`
 }
 
+// ----- Search helper struct -----
+
+type VenueSearchParams struct {
+	Title                  *string    `json:"title"`
+	Description            *string    `json:"description"`
+	LocationLongitude      *float64   `json:"location_longitude"`
+	LocationLatitude       *float64   `json:"location_latitude"`
+	LocationAddress        *string    `json:"location_address"`
+	Price                  *int       `json:"price"`
+	OwnerID                *uuid.UUID `json:"owner_id"`
+	Category               *string    `json:"category"`
+	PopulationUserCountMin *int       `json:"population_user_count_min"`
+	PopulationUserCountMax *int       `json:"population_user_count_max"`
+}
+
 // ----- POST helper struct -----
 
 type VenueInput struct {
@@ -546,6 +561,75 @@ func (h *Handlers) handleDeleteVenue(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Venue deleted successfully"})
+}
+
+func (h *Handlers) handleVenueSearch(w http.ResponseWriter, r *http.Request) {
+	var searchParams VenueSearchParams
+
+	// Parse JSON input
+	err := json.NewDecoder(r.Body).Decode(&searchParams)
+	if err != nil {
+		http.Error(w, "Invalid JSON input", http.StatusBadRequest)
+		return
+	}
+
+	// Start building the query
+	query := h.DB.NewSelect().
+		Model((*api.Event)(nil)).
+		ColumnExpr("DISTINCT v.*").
+		Join("LEFT JOIN venue_locations AS vl ON v.location_id = vl.id").
+		Join("LEFT JOIN venue_categories AS vc ON v.id = vc.venue_id").
+		Join("LEFT JOIN venue_population AS vp ON v.id = vp.venue_id")
+
+	// Apply search filters
+	if searchParams.Title != nil {
+		query = query.Where("v.title ILIKE ?", "%"+*searchParams.Title+"%")
+	}
+	if searchParams.Description != nil {
+		query = query.Where("v.description ILIKE ?", "%"+*searchParams.Description+"%")
+	}
+	if searchParams.LocationLongitude != nil {
+		query = query.Where("vl.longitude = ?", *searchParams.LocationLongitude)
+	}
+	if searchParams.LocationLatitude != nil {
+		query = query.Where("vl.latitude = ?", *searchParams.LocationLatitude)
+	}
+	if searchParams.LocationAddress != nil {
+		query = query.Where("vl.address ILIKE ?", "%"+*searchParams.LocationAddress+"%")
+	}
+	if searchParams.Price != nil {
+		query = query.Where("v.price = ?", *searchParams.Price)
+	}
+	if searchParams.OwnerID != nil {
+		query = query.Where("v.owner_id = ?", *searchParams.OwnerID)
+	}
+	if searchParams.Category != nil {
+		query = query.Where("vc.category = ?", *searchParams.Category)
+	}
+	if searchParams.PopulationUserCountMin != nil {
+		query = query.Where("vp.user_count >= ?", *searchParams.PopulationUserCountMin)
+	}
+	if searchParams.PopulationUserCountMax != nil {
+		query = query.Where("vp.user_count <= ?", *searchParams.PopulationUserCountMax)
+	}
+
+	// Execute the query
+	var venues []api.Venue
+	err = query.Scan(r.Context(), &venues)
+	if err != nil {
+		http.Error(w, "Error executing search query", http.StatusInternalServerError)
+		return
+	}
+
+	// Prepare the response
+	response := map[string]interface{}{
+		"events": venues,
+		"count":  len(venues),
+	}
+
+	// Send JSON response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *Handlers) handlePostVenue(w http.ResponseWriter, r *http.Request) {

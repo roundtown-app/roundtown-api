@@ -27,6 +27,7 @@ func (h *Handlers) Handler(router *chi.Mux) {
 			eventRouter.Get("/{eventID}", h.handleGetEvent)
 			eventRouter.Put("/{eventID}", h.handlePutEvent)
 			eventRouter.Delete("/{eventID}", h.handleDeleteEvent)
+			eventRouter.Post("/search", h.handleEventSearch)
 			eventRouter.Post("/", h.handlePostEvent)
 		})
 
@@ -34,6 +35,7 @@ func (h *Handlers) Handler(router *chi.Mux) {
 			venueRouter.Get("/{venueID}", h.handleGetVenue)
 			venueRouter.Put("/{venueID}", h.handlePutVenue)
 			venueRouter.Delete("/{venueID}", h.handleDeleteVenue)
+			venueRouter.Post("/search", h.handleVenueSearch)
 			venueRouter.Post("/", h.handlePostVenue)
 		})
 
@@ -41,19 +43,17 @@ func (h *Handlers) Handler(router *chi.Mux) {
 			planRouter.Get("/{planID}", h.handleGetPlan)
 			planRouter.Put("/{planID}", h.handlePutPlan)
 			planRouter.Delete("/{planID}", h.handleDeletePlan)
+			planRouter.Post("/search", h.handlePlanSearch)
 			planRouter.Post("/", h.handlePostPlan)
 		})
 
 		apiRouter.Route("/users", func(userRouter chi.Router) {
 			userRouter.Get("/{userID}", h.handleGetUser)
 			userRouter.Put("/", h.handlePutUser)
-			userRouter.Put("/updateLocation", h.handlePutUser)
+			userRouter.Put("/updateLocation", h.handlePutUserLocation)
 			userRouter.Delete("/", h.handleDeleteUser)
+			userRouter.Put("/search", h.handleUserSearch)
 			userRouter.Post("/", h.handlePostUser)
-		})
-
-		apiRouter.Route("/images", func(imageRouter chi.Router) {
-			imageRouter.Post("/", h.handlePostImage)
 		})
 
 		apiRouter.Route("/recommendations", func(recRouter chi.Router) {

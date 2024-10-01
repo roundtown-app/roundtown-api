@@ -18,7 +18,7 @@ func main() {
 	dsn := "postgres://username:password@localhost:5432/database_name?sslmode=disable"
 	database, db_err := db.NewDB(dsn)
 	if db_err != nil {
-		slog.Error("Failed to initialize database: %v", db_err)
+		slog.Error("Failed to initialize database: " + db_err.Error())
 	}
 	defer database.Close()
 

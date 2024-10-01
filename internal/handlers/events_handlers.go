@@ -57,6 +57,25 @@ type EventLocationUpdate struct {
 	Address   *string  `json:"address"`
 }
 
+// ----- Search helper struct -----
+
+type EventSearchParams struct {
+	Title                  *string    `json:"title"`
+	Description            *string    `json:"description"`
+	LocationLongitude      *float64   `json:"location_longitude"`
+	LocationLatitude       *float64   `json:"location_latitude"`
+	LocationAddress        *string    `json:"location_address"`
+	Price                  *int       `json:"price"`
+	IsDeal                 *bool      `json:"is_deal"`
+	StartingTime           *time.Time `json:"starting_time"`
+	EndingTime             *time.Time `json:"ending_time"`
+	VenueID                *uuid.UUID `json:"venue_id"`
+	OwnerID                *uuid.UUID `json:"owner_id"`
+	Category               *string    `json:"category"`
+	PopulationUserCountMin *int       `json:"population_user_count_min"`
+	PopulationUserCountMax *int       `json:"population_user_count_max"`
+}
+
 // ----- POST helper struct -----
 
 type EventInput struct {
@@ -554,6 +573,87 @@ func (h *Handlers) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Event deleted successfully"})
+}
+
+func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
+	var searchParams EventSearchParams
+
+	// Parse JSON input
+	err := json.NewDecoder(r.Body).Decode(&searchParams)
+	if err != nil {
+		http.Error(w, "Invalid JSON input", http.StatusBadRequest)
+		return
+	}
+
+	// Start building the query
+	query := h.DB.NewSelect().
+		Model((*api.Event)(nil)).
+		ColumnExpr("DISTINCT e.*").
+		Join("LEFT JOIN event_locations AS el ON e.location_id = el.id").
+		Join("LEFT JOIN event_categories AS ec ON e.id = ec.event_id").
+		Join("LEFT JOIN event_population AS ep ON e.id = ep.event_id")
+
+	// Apply search filters
+	if searchParams.Title != nil {
+		query = query.Where("e.title ILIKE ?", "%"+*searchParams.Title+"%")
+	}
+	if searchParams.Description != nil {
+		query = query.Where("e.description ILIKE ?", "%"+*searchParams.Description+"%")
+	}
+	if searchParams.LocationLongitude != nil {
+		query = query.Where("el.longitude = ?", *searchParams.LocationLongitude)
+	}
+	if searchParams.LocationLatitude != nil {
+		query = query.Where("el.latitude = ?", *searchParams.LocationLatitude)
+	}
+	if searchParams.LocationAddress != nil {
+		query = query.Where("el.address ILIKE ?", "%"+*searchParams.LocationAddress+"%")
+	}
+	if searchParams.Price != nil {
+		query = query.Where("e.price = ?", *searchParams.Price)
+	}
+	if searchParams.IsDeal != nil {
+		query = query.Where("e.is_deal = ?", *searchParams.IsDeal)
+	}
+	if searchParams.StartingTime != nil {
+		query = query.Where("e.starting_time >= ?", *searchParams.StartingTime)
+	}
+	if searchParams.EndingTime != nil {
+		query = query.Where("e.ending_time <= ?", *searchParams.EndingTime)
+	}
+	if searchParams.VenueID != nil {
+		query = query.Where("e.venue_id = ?", *searchParams.VenueID)
+	}
+	if searchParams.OwnerID != nil {
+		query = query.Where("e.owner_id = ?", *searchParams.OwnerID)
+	}
+	if searchParams.Category != nil {
+		query = query.Where("ec.category = ?", *searchParams.Category)
+	}
+	if searchParams.PopulationUserCountMin != nil {
+		query = query.Where("ep.user_count >= ?", *searchParams.PopulationUserCountMin)
+	}
+	if searchParams.PopulationUserCountMax != nil {
+		query = query.Where("ep.user_count <= ?", *searchParams.PopulationUserCountMax)
+	}
+
+	// Execute the query
+	var events []api.Event
+	err = query.Scan(r.Context(), &events)
+	if err != nil {
+		http.Error(w, "Error executing search query", http.StatusInternalServerError)
+		return
+	}
+
+	// Prepare the response
+	response := map[string]interface{}{
+		"events": events,
+		"count":  len(events),
+	}
+
+	// Send JSON response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {

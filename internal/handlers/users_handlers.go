@@ -17,6 +17,14 @@ type UserUpdate struct {
 	Username *string `json:"username"`
 }
 
+// ----- Search helper struct -----
+
+type UserSearchCriteria struct {
+	FirebaseUID *string `json:"firebase_uid,omitempty"`
+	Username    *string `json:"username,omitempty"`
+	AccountType *string `json:"account_type,omitempty"`
+}
+
 // ----- Request handlers -----
 
 func (h *Handlers) handleGetUser(w http.ResponseWriter, r *http.Request) {
@@ -125,6 +133,42 @@ func (h *Handlers) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handlers) handleUserSearch(w http.ResponseWriter, r *http.Request) {
+	// Parse JSON from request body
+	var criteria UserSearchCriteria
+	err := json.NewDecoder(r.Body).Decode(&criteria)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Start building the query
+	query := h.DB.NewSelect().Model((*api.User)(nil))
+
+	// Add conditions based on provided parameters
+	if criteria.FirebaseUID != nil {
+		query = query.Where("firebase_uid = ?", *criteria.FirebaseUID)
+	}
+	if criteria.Username != nil {
+		query = query.Where("username LIKE ?", "%"+*criteria.Username+"%")
+	}
+	if criteria.AccountType != nil {
+		query = query.Where("account_type = ?", *criteria.AccountType)
+	}
+
+	// Execute the query
+	var users []api.User
+	err = query.Limit(10).Scan(r.Context(), &users)
+	if err != nil {
+		http.Error(w, "Failed to search users", http.StatusInternalServerError)
+		return
+	}
+
+	// Return the results
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
 }
 
 func (h *Handlers) handlePostUser(w http.ResponseWriter, r *http.Request) {

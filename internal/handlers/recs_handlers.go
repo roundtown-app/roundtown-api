@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (h *Handlers) forwardRequest(w http.ResponseWriter, r *http.Request, url string) {
+func (h *Handlers) forwardRequest(w http.ResponseWriter, url string) {
 	resp, err := http.Get(url)
 	if err != nil {
 		http.Error(w, "Error fetching recommendations", http.StatusInternalServerError)
@@ -28,7 +28,7 @@ func (h *Handlers) handleGetFeedRec(w http.ResponseWriter, r *http.Request) {
 
 	url := h.RecommendationServerURL + "/feed-recs/" + userID
 
-	h.forwardRequest(w, r, url)
+	h.forwardRequest(w, url)
 }
 
 func (h *Handlers) handleGetPlanRec(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +41,7 @@ func (h *Handlers) handleGetPlanRec(w http.ResponseWriter, r *http.Request) {
 
 	url := h.RecommendationServerURL + "/plan-recs/" + userID
 
-	h.forwardRequest(w, r, url)
+	h.forwardRequest(w, url)
 }
 
 func (h *Handlers) handleGetEBRec(w http.ResponseWriter, r *http.Request) {
@@ -54,5 +54,5 @@ func (h *Handlers) handleGetEBRec(w http.ResponseWriter, r *http.Request) {
 
 	url := h.RecommendationServerURL + "/event-based-recs/" + userID
 
-	h.forwardRequest(w, r, url)
+	h.forwardRequest(w, url)
 }
