@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"firebase.google.com/go/auth"
 	"github.com/go-chi/chi/v5"
 	chi_middleware "github.com/go-chi/chi/v5/middleware"
 
@@ -11,17 +12,22 @@ import (
 type Handlers struct {
 	DB                      *db.DB
 	RecommendationServerURL string
+	AuthClient				*auth.Client
 }
 
-func NewHandler(db *db.DB, recServerURL string) *Handlers {
-	return &Handlers{DB: db, RecommendationServerURL: recServerURL}
+func NewHandler(db *db.DB, recServerURL string, client *auth.Client) *Handlers {
+	return &Handlers{
+		DB: db, 
+		RecommendationServerURL: recServerURL,
+		AuthClient: client,
+	}
 }
 
 func (h *Handlers) Handler(router *chi.Mux) {
 	router.Use(chi_middleware.StripSlashes)
 
 	router.Route("/api", func(apiRouter chi.Router) {
-		apiRouter.Use(middleware.Authorization)
+		apiRouter.Use(middleware.Authorization(h.AuthClient, h.DB.DB))
 
 		apiRouter.Route("/events", func(eventRouter chi.Router) {
 			eventRouter.Get("/{eventID}", h.handleGetEvent)

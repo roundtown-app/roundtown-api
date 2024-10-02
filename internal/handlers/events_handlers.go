@@ -20,34 +20,38 @@ import (
 // ----- GET helper struct -----
 
 type EventDetails struct {
-	Event        api.Event           `json:"event"`
-	Categories   []api.EventCategory `json:"categories"`
-	Location     api.EventLocation   `json:"location"`
-	Ratings      []api.EventRating   `json:"ratings"`
-	Assets       []api.EventAssets   `json:"assets"`
-	Population   api.EventPopulation `json:"population"`
-	IsSaved      bool                `json:"is_saved"`
-	IsVisited    bool                `json:"is_visited"`
-	IsSharedFrom bool                `json:"is_shared_from"`
-	IsSharedTo   bool                `json:"is_shared_to"`
+	Event             api.Event                   `json:"event"`
+	Categories        []api.EventCategory         `json:"categories"`
+	Location          api.EventLocation           `json:"location"`
+	Ratings           []api.EventRating           `json:"ratings"`
+	Assets            []api.EventAssets           `json:"assets"`
+	Population        api.EventPopulation         `json:"population"`
+	IsSaved           bool                        `json:"is_saved"`
+	IsVisited         bool                        `json:"is_visited"`
+	IsSharedFrom      bool                        `json:"is_shared_from"`
+	IsSharedTo        bool                        `json:"is_shared_to"`
+	RecurrencePattern *api.EventRecurrencePattern `json:"recurrence_pattern,omitempty"`
+	Exceptions        []api.EventException        `json:"exceptions,omitempty"`
 }
 
 // ----- PUT helper structs -----
 
 type EventUpdate struct {
-	Title         *string         `json:"title"`
-	Description   *string         `json:"description"`
-	Detailed      *string         `json:"detailed"`
-	Price         *int            `json:"price"`
-	Sponsor       *int            `json:"sponsor"`
-	IsDeal        *bool           `json:"is_deal"`
-	StartingTime  *time.Time      `json:"starting_time"`
-	EndingTime    *time.Time      `json:"ending_time"`
-	Recurring     *int            `json:"recurring"`
-	VenueID       *uuid.UUID      `json:"venue_id"`
-	Categories    []string        `json:"categories"`
-	Location      *EventLocationUpdate `json:"location"`
-	Assets        []string        `json:"assets"`
+	Title             *string                     `json:"title"`
+	Description       *string                     `json:"description"`
+	Detailed          *string                     `json:"detailed"`
+	Price             *int                        `json:"price"`
+	Sponsor           *int                        `json:"sponsor"`
+	IsDeal            *bool                       `json:"is_deal"`
+	StartingTime      *time.Time                  `json:"starting_time"`
+	EndingTime        *time.Time                  `json:"ending_time"`
+	Recurring         *int                        `json:"recurring"`
+	VenueID           *uuid.UUID                  `json:"venue_id"`
+	Categories        []string                    `json:"categories"`
+	Location          *EventLocationUpdate        `json:"location"`
+	Assets            []string                    `json:"assets"`
+	RecurrencePattern *api.EventRecurrencePattern `json:"recurrence_pattern"`
+	Exceptions        []api.EventException        `json:"exceptions"`
 }
 
 type EventLocationUpdate struct {
@@ -79,10 +83,12 @@ type EventSearchParams struct {
 // ----- POST helper struct -----
 
 type EventInput struct {
-	Event      api.Event         `json:"event"`
-	Categories []string          `json:"categories"`
-	Location   api.EventLocation `json:"location"`
-	Assets     []api.EventAssets `json:"assets"`
+	Event             api.Event                   `json:"event"`
+	Categories        []string                    `json:"categories"`
+	Location          api.EventLocation           `json:"location"`
+	Assets            []api.EventAssets           `json:"assets"`
+	RecurrencePattern *api.EventRecurrencePattern `json:"recurrence_pattern,omitempty"`
+	Exceptions        []api.EventException        `json:"exceptions,omitempty"`
 }
 
 // ----- GET helper functions -----
@@ -151,6 +157,24 @@ func (h *Handlers) getEventDetails(ctx context.Context, eventID uuid.UUID, userI
 		} else {
 			return nil, fmt.Errorf("failed to fetch event population: %w", err)
 		}
+	}
+
+	// Fetch recurrence pattern
+	err = h.DB.NewSelect().
+		Model(&details.RecurrencePattern).
+		Where("event_id = ?", eventID).
+		Scan(ctx)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to fetch event recurrence pattern: %w", err)
+	}
+
+	// Fetch exceptions
+	err = h.DB.NewSelect().
+		Model(&details.Exceptions).
+		Where("event_id = ?", eventID).
+		Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch event exceptions: %w", err)
 	}
 
 	if userID != uuid.Nil {
@@ -254,6 +278,22 @@ func (h *Handlers) updateEvent(ctx context.Context, tx bun.Tx, eventID uuid.UUID
 		err = h.updateEventAssets(ctx, tx, eventID, update.Assets)
 		if err != nil {
 			return fmt.Errorf("failed to update event assets: %w", err)
+		}
+	}
+
+	// Update recurrence pattern
+	if update.RecurrencePattern != nil {
+		err = h.updateEventRecurrencePattern(ctx, tx, eventID, update.RecurrencePattern)
+		if err != nil {
+			return fmt.Errorf("failed to update event recurrence pattern: %w", err)
+		}
+	}
+
+	// Update exceptions
+	if update.Exceptions != nil {
+		err = h.updateEventExceptions(ctx, tx, eventID, update.Exceptions)
+		if err != nil {
+			return fmt.Errorf("failed to update event exceptions: %w", err)
 		}
 	}
 
@@ -402,6 +442,51 @@ func (h *Handlers) updateEventAssets(ctx context.Context, tx bun.Tx, eventID uui
 	}
 
 	return nil
+}
+
+func (h *Handlers) updateEventRecurrencePattern(ctx context.Context, tx bun.Tx, eventID uuid.UUID, pattern *api.EventRecurrencePattern) error {
+	if pattern == nil {
+		_, err := tx.NewDelete().
+			Model((*api.EventRecurrencePattern)(nil)).
+			Where("event_id = ?", eventID).
+			Exec(ctx)
+		return err
+	}
+
+	pattern.EventID = eventID.String()
+	_, err := tx.NewInsert().
+		Model(pattern).
+		On("CONFLICT (event_id) DO UPDATE").
+		Set("frequency = EXCLUDED.frequency").
+		Set("days_of_week = EXCLUDED.days_of_week").
+		Set("week_of_month = EXCLUDED.week_of_month").
+		Set("start_date = EXCLUDED.start_date").
+		Set("end_date = EXCLUDED.end_date").
+		Exec(ctx)
+	return err
+}
+
+func (h *Handlers) updateEventExceptions(ctx context.Context, tx bun.Tx, eventID uuid.UUID, exceptions []api.EventException) error {
+	if len(exceptions) == 0 {
+		_, err := tx.NewDelete().
+			Model((*api.EventException)(nil)).
+			Where("event_id = ?", eventID).
+			Exec(ctx)
+		return err
+	}
+
+	for i := range exceptions {
+		exceptions[i].EventID = eventID.String()
+	}
+
+	_, err := tx.NewInsert().
+		Model(&exceptions).
+		On("CONFLICT (event_id, exception_date) DO UPDATE").
+		Set("is_cancelled = EXCLUDED.is_cancelled").
+		Set("alternate_starting_time = EXCLUDED.alternate_starting_time").
+		Set("alternate_ending_time = EXCLUDED.alternate_ending_time").
+		Exec(ctx)
+	return err
 }
 
 // ----- DELETE helper function -----
@@ -709,6 +794,28 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 		_, err = tx.NewInsert().Model(&asset).Exec(ctx)
 		if err != nil {
 			http.Error(w, "Failed to insert event asset", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Insert EventRecurrencePattern if provided
+	if input.RecurrencePattern != nil {
+		input.RecurrencePattern.EventID = input.Event.ID.String()
+		_, err = tx.NewInsert().Model(input.RecurrencePattern).Exec(ctx)
+		if err != nil {
+			http.Error(w, "Failed to insert event recurrence pattern", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Insert EventExceptions if provided
+	if len(input.Exceptions) > 0 {
+		for i := range input.Exceptions {
+			input.Exceptions[i].EventID = input.Event.ID.String()
+		}
+		_, err = tx.NewInsert().Model(&input.Exceptions).Exec(ctx)
+		if err != nil {
+			http.Error(w, "Failed to insert event exceptions", http.StatusInternalServerError)
 			return
 		}
 	}

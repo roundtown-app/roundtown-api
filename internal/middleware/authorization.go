@@ -1,34 +1,70 @@
 package middleware
 
 import (
-	"fmt"
+	"context"
+	"database/sql"
+	"errors"
 	"net/http"
+	"strings"
 
-	"github.com/roundtown-app/roundtown-api/api"
-	"github.com/roundtown-app/roundtown-api/internal/tools"
+	"firebase.google.com/go/auth"
+	"github.com/uptrace/bun"
 )
 
-func Authorization(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+type contextKey string
 
-		var token = r.Header.Get("Authorization")
-		var err error
+const (
+	UserIDKey      contextKey = "userID"
+	AccountTypeKey contextKey = "accountType"
+)
 
-		var database *tools.DatabaseInterface
-		database, err = tools.NewDatabase()
-		if err != nil {
-			api.InternalErrorHandler(w)
-			return
-		}
+func Authorization(firebaseAuth *auth.Client, db *bun.DB) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Extract the token from the Authorization header
+			authHeader := r.Header.Get("Authorization")
+			idToken := strings.TrimPrefix(authHeader, "Bearer ")
 
-		var loginDetails *tools.LoginDetails = (*database).GetUserLoginDetails(token)
+			if idToken == "" {
+				http.Error(w, "Missing or invalid authorization token", http.StatusUnauthorized)
+				return
+			}
 
-		if loginDetails == nil || (token != (*loginDetails).AuthToken) {
-			api.RequestErrorHandler(w, fmt.Errorf("invalid token"))
-			return
-		}
+			// Verify the Firebase token
+			token, err := firebaseAuth.VerifyIDToken(r.Context(), idToken)
+			if err != nil {
+				http.Error(w, "Invalid authorization token", http.StatusUnauthorized)
+				return
+			}
 
-		next.ServeHTTP(w, r)
+			// Check if the session is active (you may want to implement additional checks)
+			if !token.Claims["session_active"].(bool) {
+				http.Error(w, "Inactive session", http.StatusUnauthorized)
+				return
+			}
 
-	})
+			// Get the Firebase UID from the token
+			firebaseUID := token.UID
+
+			// Query the database to get userID and accountType
+			var userID string
+			var accountType string
+			err = db.QueryRowContext(r.Context(), "SELECT user_id, account_type FROM users WHERE firebase_uid = ?", firebaseUID).Scan(&userID, &accountType)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					http.Error(w, "User not found", http.StatusUnauthorized)
+				} else {
+					http.Error(w, "Internal server error", http.StatusInternalServerError)
+				}
+				return
+			}
+
+			// Add userID and accountType to the request context
+			ctx := context.WithValue(r.Context(), UserIDKey, userID)
+			ctx = context.WithValue(ctx, AccountTypeKey, accountType)
+
+			// Call the next handler with the updated context
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }

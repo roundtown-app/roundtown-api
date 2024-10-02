@@ -20,16 +20,18 @@ import (
 // ----- GET helper struct -----
 
 type VenueDetails struct {
-	Venue        api.Venue           `json:"venue"`
-	Categories   []api.VenueCategory `json:"categories"`
-	Location     api.VenueLocation   `json:"location"`
-	Ratings      []api.VenueRating   `json:"ratings"`
-	Assets       []api.VenueAssets   `json:"assets"`
-	Population   api.VenuePopulation `json:"population"`
-	IsSaved      bool                `json:"is_saved"`
-	IsVisited    bool                `json:"is_visited"`
-	IsSharedFrom bool                `json:"is_shared_from"`
-	IsSharedTo   bool                `json:"is_shared_to"`
+	Venue        api.Venue            `json:"venue"`
+	Categories   []api.VenueCategory  `json:"categories"`
+	Location     api.VenueLocation    `json:"location"`
+	Ratings      []api.VenueRating    `json:"ratings"`
+	Assets       []api.VenueAssets    `json:"assets"`
+	Population   api.VenuePopulation  `json:"population"`
+	IsSaved      bool                 `json:"is_saved"`
+	IsVisited    bool                 `json:"is_visited"`
+	IsSharedFrom bool                 `json:"is_shared_from"`
+	IsSharedTo   bool                 `json:"is_shared_to"`
+	Exceptions   []api.VenueException `json:"exceptions"`
+	Hours        []api.VenueHours     `json:"hours"`
 }
 
 // ----- PUT helper structs -----
@@ -44,6 +46,8 @@ type VenueUpdate struct {
 	Categories  []string             `json:"categories"`
 	Location    *VenueLocationUpdate `json:"location"`
 	Assets      []string             `json:"assets"`
+	Exceptions  []api.VenueException `json:"exceptions"`
+	Hours       []api.VenueHours     `json:"hours"`
 }
 
 type VenueLocationUpdate struct {
@@ -71,10 +75,12 @@ type VenueSearchParams struct {
 // ----- POST helper struct -----
 
 type VenueInput struct {
-	Venue      api.Venue         `json:"venue"`
-	Categories []string          `json:"categories"`
-	Location   api.VenueLocation `json:"location"`
-	Assets     []api.VenueAssets `json:"assets"`
+	Venue      api.Venue            `json:"venue"`
+	Categories []string             `json:"categories"`
+	Location   api.VenueLocation    `json:"location"`
+	Assets     []api.VenueAssets    `json:"assets"`
+	Exceptions []api.VenueException `json:"exceptions"`
+	Hours      []api.VenueHours     `json:"hours"`
 }
 
 // ----- GET helper functions -----
@@ -143,6 +149,24 @@ func (h *Handlers) getVenueDetails(ctx context.Context, venueID uuid.UUID, userI
 		} else {
 			return nil, fmt.Errorf("failed to fetch venue population: %w", err)
 		}
+	}
+
+	// Fetch exceptions
+	err = h.DB.NewSelect().
+		Model(&details.Exceptions).
+		Where("venue_id = ?", venueID).
+		Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch venue exceptions: %w", err)
+	}
+
+	// Fetch hours
+	err = h.DB.NewSelect().
+		Model(&details.Hours).
+		Where("venue_id = ?", venueID).
+		Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch venue hours: %w", err)
 	}
 
 	if userID != uuid.Nil {
@@ -242,6 +266,22 @@ func (h *Handlers) updateVenue(ctx context.Context, tx bun.Tx, venueID uuid.UUID
 		err = h.updateVenueAssets(ctx, tx, venueID, update.Assets)
 		if err != nil {
 			return fmt.Errorf("failed to update venue assets: %w", err)
+		}
+	}
+
+	// Update exceptions
+	if update.Exceptions != nil {
+		err = h.updateVenueExceptions(ctx, tx, venueID, update.Exceptions)
+		if err != nil {
+			return fmt.Errorf("failed to update venue exceptions: %w", err)
+		}
+	}
+
+	// Update hours
+	if update.Hours != nil {
+		err = h.updateVenueHours(ctx, tx, venueID, update.Hours)
+		if err != nil {
+			return fmt.Errorf("failed to update venue hours: %w", err)
 		}
 	}
 
@@ -386,6 +426,54 @@ func (h *Handlers) updateVenueAssets(ctx context.Context, tx bun.Tx, venueID uui
 			Exec(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to delete old assets: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (h *Handlers) updateVenueExceptions(ctx context.Context, tx bun.Tx, venueID uuid.UUID, newExceptions []api.VenueException) error {
+	// Delete existing exceptions
+	_, err := tx.NewDelete().
+		Model((*api.VenueException)(nil)).
+		Where("venue_id = ?", venueID).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing exceptions: %w", err)
+	}
+
+	// Insert new exceptions
+	for _, exception := range newExceptions {
+		exception.VenueID = venueID.String()
+		_, err := tx.NewInsert().
+			Model(&exception).
+			Exec(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to insert new exception: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (h *Handlers) updateVenueHours(ctx context.Context, tx bun.Tx, venueID uuid.UUID, newHours []api.VenueHours) error {
+	// Delete existing hours
+	_, err := tx.NewDelete().
+		Model((*api.VenueHours)(nil)).
+		Where("venue_id = ?", venueID).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing hours: %w", err)
+	}
+
+	// Insert new hours
+	for _, hours := range newHours {
+		hours.VenueID = venueID.String()
+		_, err := tx.NewInsert().
+			Model(&hours).
+			Exec(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to insert new hours: %w", err)
 		}
 	}
 
@@ -685,6 +773,26 @@ func (h *Handlers) handlePostVenue(w http.ResponseWriter, r *http.Request) {
 		_, err = tx.NewInsert().Model(&asset).Exec(ctx)
 		if err != nil {
 			http.Error(w, "Failed to insert venue asset", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Insert VenueExceptions
+	for _, exception := range input.Exceptions {
+		exception.VenueID = input.Venue.ID.String()
+		_, err = tx.NewInsert().Model(&exception).Exec(ctx)
+		if err != nil {
+			http.Error(w, "Failed to insert venue exception", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Insert VenueHours
+	for _, hours := range input.Hours {
+		hours.VenueID = input.Venue.ID.String()
+		_, err = tx.NewInsert().Model(&hours).Exec(ctx)
+		if err != nil {
+			http.Error(w, "Failed to insert venue hours", http.StatusInternalServerError)
 			return
 		}
 	}

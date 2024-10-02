@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -64,4 +65,27 @@ type EventPopulation struct {
 	EventID uuid.UUID `bun:"event_id,pk"`
 	UserCount int `bun:"user_count"`
 	LastUpdated time.Time `bun:"last_updated,nullzero,default:current_timestamp"`
+}
+
+type EventRecurrencePattern struct {
+	bun.BaseModel `bun:"table:event_recurrence_patterns,alias:erp"`
+
+	EventID     string         `bun:"event_id,pk,type:uuid"`
+	Frequency   string         `bun:"frequency,notnull"`
+	DaysOfWeek  []int          `bun:"days_of_week,array"`
+	WeekOfMonth []int          `bun:"week_of_month,array"`
+	StartDate   time.Time      `bun:"start_date,notnull"`
+	EndDate     sql.NullTime   `bun:"end_date"`
+	Event       *Event         `bun:"rel:belongs-to,join:event_id=id"`
+}
+
+type EventException struct {
+	bun.BaseModel `bun:"table:event_exceptions,alias:ee"`
+
+	EventID              string         `bun:"event_id,pk,type:uuid"`
+	ExceptionDate        time.Time      `bun:"exception_date,pk"`
+	IsCancelled          bool           `bun:"is_cancelled"`
+	AlternateStartingTime sql.NullTime   `bun:"alternate_starting_time"`
+	AlternateEndingTime   sql.NullTime   `bun:"alternate_ending_time"`
+	Event                *Event         `bun:"rel:belongs-to,join:event_id=id"`
 }

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,4 +61,27 @@ type VenuePopulation struct {
 	VenueID     uuid.UUID `bun:"venue_id,pk"`
 	UserCount   int       `bun:"user_count"`
 	LastUpdated time.Time `bun:"last_updated,nullzero,default:current_timestamp"`
+}
+
+type VenueException struct {
+	bun.BaseModel `bun:"table:venue_exceptions,alias:ve"`
+
+	VenueID              string         `bun:"venue_id,pk,type:uuid"`
+	ExceptionDate        time.Time      `bun:"exception_date,pk"`
+	IsClosed             bool           `bun:"is_closed"`
+	AlternateStartingTime sql.NullTime   `bun:"alternate_starting_time"`
+	AlternateEndingTime   sql.NullTime   `bun:"alternate_ending_time"`
+	Venue                *Venue         `bun:"rel:belongs-to,join:venue_id=id"`
+}
+
+type VenueHours struct {
+	bun.BaseModel `bun:"table:venue_hours,alias:vh"`
+
+	VenueID     string         `bun:"venue_id,pk,type:uuid"`
+	Type        sql.NullString `bun:"type"`
+	Day         int            `bun:"day,pk"`
+	OpeningTime sql.NullTime   `bun:"opening_time"`
+	ClosingTime sql.NullTime   `bun:"closing_time"`
+	IsClosed    bool           `bun:"is_closed"`
+	Venue       *Venue         `bun:"rel:belongs-to,join:venue_id=id"`
 }
