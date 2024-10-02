@@ -1,0 +1,25 @@
+{
+    "plan": {
+      "title": "Summer Vacation",
+      "date": "2024-08-01T09:00:00Z",
+      "creator_id": "98765432-e89b-12d3-a456-426614174000",
+      "private": false
+    },
+    "items": [
+      {
+        "title": "Book flights",
+        "description": "Find and book flights to destination",
+        "completed": false
+      },
+      {
+        "title": "Reserve accommodation",
+        "description": "Book hotel or vacation rental",
+        "completed": false
+      },
+      {
+        "title": "Plan activities",
+        "description": "Research and list activities for the trip",
+        "completed": false
+      }
+    ]
+  }
