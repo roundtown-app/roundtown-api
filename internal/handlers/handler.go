@@ -12,14 +12,14 @@ import (
 type Handlers struct {
 	DB                      *db.DB
 	RecommendationServerURL string
-	AuthClient				*auth.Client
+	AuthClient              *auth.Client
 }
 
 func NewHandler(db *db.DB, recServerURL string, client *auth.Client) *Handlers {
 	return &Handlers{
-		DB: db, 
+		DB:                      db,
 		RecommendationServerURL: recServerURL,
-		AuthClient: client,
+		AuthClient:              client,
 	}
 }
 
@@ -63,9 +63,9 @@ func (h *Handlers) Handler(router *chi.Mux) {
 		})
 
 		apiRouter.Route("/recommendations", func(recRouter chi.Router) {
-			recRouter.Get("feed-recs/{userID}", h.handleGetFeedRec)
-			recRouter.Get("plan-recs/{userID}", h.handleGetPlanRec)
-			recRouter.Get("event-based-recs/{userID}", h.handleGetEBRec)
+			recRouter.Get("/feed-recs/{userID}", h.handleGetFeedRec)
+			recRouter.Get("/plan-recs/{userID}", h.handleGetPlanRec)
+			recRouter.Get("/event-based-recs/{userID}", h.handleGetEBRec)
 		})
 	})
 }

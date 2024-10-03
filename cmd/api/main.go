@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"os"
 
 	firebase "firebase.google.com/go"
 	"github.com/go-chi/chi/v5"
@@ -16,25 +17,35 @@ import (
 func main() {
 	slog.Info("Starting Roundtown API")
 
-	opt := option.WithCredentialsFile("credentials.json")
+	// Initialize the app with the service account
+	opt := option.WithCredentialsFile("./service_account.json")
 	app, err := firebase.NewApp(context.Background(), nil, opt)
 	if err != nil {
-		slog.Error("Error initializing Firebase app: " + err.Error() + "\n")
+		slog.Error("error initializing firebase app: " + err.Error())
+		os.Exit(1)
 	}
-    
+
+	slog.Info("Initialized Firebase app")
+
 	client, err := app.Auth(context.Background())
 	if err != nil {
-		slog.Error("Error creating Firebase client: " + err.Error() + "\n")
+		slog.Error("error creating firebase auth client: " + err.Error())
+		os.Exit(1)
 	}
+
+	slog.Info("Initialized Firebase client")
 
 	recServerURL := ""
 
-	dsn := "postgres://username:password@localhost:5432/database_name?sslmode=disable"
+	dsn := "postgres://postgres:password1@localhost:5432/postgres?sslmode=disable"
 	database, db_err := db.NewDB(dsn)
 	if db_err != nil {
 		slog.Error("Failed to initialize database: " + db_err.Error() + "\n")
+		os.Exit(1)
 	}
 	defer database.Close()
+
+	slog.Info("Initialized connection to database")
 
 	var router *chi.Mux = chi.NewRouter()
 
