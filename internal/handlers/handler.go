@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"net/http"
+	"time"
+
 	"firebase.google.com/go/auth"
 	"github.com/go-chi/chi/v5"
 	chi_middleware "github.com/go-chi/chi/v5/middleware"
@@ -26,8 +29,12 @@ func NewHandler(db *db.DB, recServerURL string, client *auth.Client) *Handlers {
 func (h *Handlers) Handler(router *chi.Mux) {
 	router.Use(chi_middleware.StripSlashes)
 
+	router.Get("/heartbeat", h.handleHeartbeat)
+
 	router.Route("/api", func(apiRouter chi.Router) {
 		apiRouter.Use(middleware.Authorization(h.AuthClient, h.DB.DB))
+
+		apiRouter.Get("/heartbeat", h.handleHeartbeat)
 
 		apiRouter.Route("/events", func(eventRouter chi.Router) {
 			eventRouter.Get("/{eventID}", h.handleGetEvent)
@@ -67,5 +74,23 @@ func (h *Handlers) Handler(router *chi.Mux) {
 			recRouter.Get("/plan-recs/{userID}", h.handleGetPlanRec)
 			recRouter.Get("/event-based-recs/{userID}", h.handleGetEBRec)
 		})
+
+		apiRouter.Route("/interactions", func(intRouter chi.Router) {
+			intRouter.Get("/savedItems", h.handleGetSavedItems)
+			intRouter.Put("/saveItem", h.handleSaveItem)
+			intRouter.Delete("/unsaveItem", h.handleUnsaveItem)
+		})
 	})
+}
+
+func (h *Handlers) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
+    // Get current time
+    currentTime := time.Now()
+
+    // Format the response
+    response := currentTime.Format("2006-01-02 15:04:05")
+
+    // Set the response header and write the response
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte(response))
 }

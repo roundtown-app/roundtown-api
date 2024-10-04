@@ -21,6 +21,8 @@ import (
 
 type EventDetails struct {
 	Event             api.Event                   `json:"event"`
+	Venue			  api.Venue					  `json:"venue"`
+	VenueAssets	  	  api.VenueAssets			  `json:"venue_assets"`
 	Categories        []api.EventCategory         `json:"categories"`
 	Location          api.EventLocation           `json:"location"`
 	Ratings           []api.EventRating           `json:"ratings"`
@@ -103,6 +105,24 @@ func (h *Handlers) getEventDetails(ctx context.Context, eventID uuid.UUID, userI
 		Scan(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch event: %w", err)
+	}
+
+	// Fetch venue details
+    err = h.DB.NewSelect().
+		Model(&details.Venue).
+		Where("id = ?", details.Event.VenueID).
+		Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch venue: %w", err)
+	}
+
+	// Fetch venue assets
+    err = h.DB.NewSelect().
+		Model(&details.VenueAssets).
+		Where("venue_id = ?", details.Event.VenueID).
+		Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch venue assets: %w", err)
 	}
 
 	// Fetch categories

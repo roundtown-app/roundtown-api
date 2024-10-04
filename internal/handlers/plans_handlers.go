@@ -20,7 +20,8 @@ import (
 
 type PlanDetails struct {
 	Plan     api.Plan       `json:"plan"`
-	Items    []api.PlanItem `json:"items"`
+	Venues	 []api.Venue	`json:"venues"`
+	Events	 []api.Event	`json:"events"`
 	Users    []api.PlanUser `json:"users"`
 	IsOwner  bool           `json:"is_owner"`
 	IsMember bool           `json:"is_member"`
@@ -73,12 +74,37 @@ func (h *Handlers) getPlanDetails(ctx context.Context, planID uuid.UUID, userID 
 	}
 
 	// Fetch plan items
+	var planItems []api.PlanItem
 	err = h.DB.NewSelect().
-		Model(&details.Items).
+		Model(&planItems).
 		Where("plan_id = ?", planID).
 		Scan(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch plan items: %w", err)
+	}
+
+	for _, planItem := range planItems {
+		var eventItem api.Event
+		var venueItem api.Venue
+		if planItem.EventID != uuid.Nil {
+			err = h.DB.NewSelect().
+				Model(&eventItem).
+				Where("id = ?", planItem.EventID).
+				Scan(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch plan item event: %w", err)
+			}
+			details.Events = append(details.Events, eventItem)
+		} else {
+			err = h.DB.NewSelect().
+				Model(&venueItem).
+				Where("id = ?", planItem.VenueID).
+				Scan(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch plan item event: %w", err)
+			}
+			details.Venues = append(details.Venues, venueItem)
+		}
 	}
 
 	// Fetch plan users
