@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,14 +14,13 @@ type Event struct {
 	Title         string    `bun:"title,notnull"`
 	Description   string    `bun:"description"`
 	Detailed      string    `bun:"detailed"`
-	LocationID    int       `bun:"location_id,notnull,unique"`
+	LocationID    uuid.UUID       `bun:"location_id,notnull,unique"`
 	ActivityCount int       `bun:"activity_count,nullzero"`
 	Price         int       `bun:"price,nullzero"`
 	Sponsor       int       `bun:"sponsor,nullzero"`
 	IsDeal        bool      `bun:"is_deal,nullzero"`
 	StartingTime  time.Time `bun:"starting_time,notnull"`
 	EndingTime    time.Time `bun:"ending_time,notnull"`
-	Recurring     int       `bun:"recurring,nullzero"`
 	VenueID       uuid.UUID `bun:"venue_id,notnull"`
 	CreatedAt     time.Time `bun:"created_at,nullzero,default:current_timestamp"`
 	OwnerID       uuid.UUID `bun:"owner_id"`
@@ -38,7 +36,7 @@ type EventCategory struct {
 type EventLocation struct {
 	bun.BaseModel `bun:"table:event_locations,alias:el"`
 
-	ID        int     `bun:"id,pk,autoincrement"`
+	ID        uuid.UUID     `bun:"id,pk"`
 	Longitude float64 `bun:"longitude"`
 	Latitude  float64 `bun:"latitude"`
 	Address   string  `bun:"address"`
@@ -75,8 +73,7 @@ type EventRecurrencePattern struct {
 	DaysOfWeek  []int          `bun:"days_of_week,array"`
 	WeekOfMonth []int          `bun:"week_of_month,array"`
 	StartDate   time.Time      `bun:"start_date,notnull"`
-	EndDate     sql.NullTime   `bun:"end_date"`
-	Event       *Event         `bun:"rel:belongs-to,join:event_id=id"`
+	EndDate     time.Time   `bun:"end_date"`
 }
 
 type EventException struct {
@@ -85,7 +82,6 @@ type EventException struct {
 	EventID              string         `bun:"event_id,pk,type:uuid"`
 	ExceptionDate        time.Time      `bun:"exception_date,pk"`
 	IsCancelled          bool           `bun:"is_cancelled"`
-	AlternateStartingTime sql.NullTime   `bun:"alternate_starting_time"`
-	AlternateEndingTime   sql.NullTime   `bun:"alternate_ending_time"`
-	Event                *Event         `bun:"rel:belongs-to,join:event_id=id"`
+	AlternateStartingTime time.Time   `bun:"alternate_starting_time"`
+	AlternateEndingTime   time.Time   `bun:"alternate_ending_time"`
 }

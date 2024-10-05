@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/roundtown-app/roundtown-api/api"
+	"github.com/roundtown-app/roundtown-api/internal/middleware"
 )
 
 // SaveItemRequest represents the request body for saving an item
@@ -24,7 +25,11 @@ type SavedItemResponse struct {
 
 // handleGetSavedItems retrieves all saved items for the authenticated user
 func (h *Handlers) handleGetSavedItems(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(uuid.UUID)
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
 
 	var savedItems []api.SavedItem
 	err := h.DB.NewSelect().
@@ -73,7 +78,11 @@ func (h *Handlers) handleGetSavedItems(w http.ResponseWriter, r *http.Request) {
 
 // handleSaveItem saves a new item (venue or event) for the authenticated user
 func (h *Handlers) handleSaveItem(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(uuid.UUID)
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
 
 	var req SaveItemRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -125,7 +134,11 @@ func (h *Handlers) handleSaveItem(w http.ResponseWriter, r *http.Request) {
 
 // handleUnsaveItem removes a saved item for the authenticated user
 func (h *Handlers) handleUnsaveItem(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(uuid.UUID)
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
 
 	var req SaveItemRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

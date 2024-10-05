@@ -1,32 +1,74 @@
 {
-    "venue": {
-      "id": "123e4567-e89b-12d3-a456-426614174000",
-      "title": "Cozy Coffee Corner",
-      "description": "A charming local coffee shop",
-      "detailed": "Our coffee shop offers a warm atmosphere with freshly brewed artisanal coffee and homemade pastries.",
-      "price": 2,
-      "sponsor": 0,
-      "hidden": false,
-      "owner_id": "098f6bcd-4621-3373-8ade-4e832627b4f6"
-    },
-    "categories": [
-      "coffee", 
-      "cafe"
-    ],
-    "location": {
-      "longitude": -122.4194,
-      "latitude": 37.7749,
-      "address": "123 Main St, San Francisco, CA 94122"
-    },
-    "assets": [
-      "asset123"
-    ],
-    "population": {
-      "user_count": 15,
-      "last_updated": "2023-09-30T15:45:00Z"
-    },
-    "is_saved": true,
-    "is_visited": false,
-    "is_shared_from": false,
-    "is_shared_to": true
-  }
+  "venue": {
+      "ID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+      "Title": "My Venue",
+      "Description": "A great venue",
+      "Detailed": "Detailed description here",
+      "LocationID": "019255af-3a7f-7874-945c-57f4e97f042a",
+      "ActivityCount": 0,
+      "Price": 100,
+      "Sponsor": 1,
+      "Hidden": false,
+      "CreatedAt": "2024-10-04T00:00:00.127554-04:00",
+      "OwnerID": "019254f1-11c5-76ed-b1a5-6f79748ed44c"
+  },
+  "categories": [
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "Category": "sports"
+      },
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "Category": "entertainment"
+      }
+  ],
+  "location": {
+      "ID": "019255af-3a7f-7874-945c-57f4e97f042a",
+      "Longitude": 123.456,
+      "Latitude": 78.9,
+      "Address": "123 Main St"
+  },
+  "ratings": null,
+  "assets": [
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "AssetID": "asset1"
+      },
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "AssetID": "asset2"
+      }
+  ],
+  "population": {
+      "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+      "UserCount": 0,
+      "LastUpdated": "2024-10-04T00:00:00.13453-04:00"
+  },
+  "is_saved": false,
+  "is_visited": false,
+  "is_shared_from": false,
+  "is_shared_to": false,
+  "exceptions": [
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "ExceptionDate": "2024-12-25T00:00:00Z",
+          "IsClosed": true,
+          "AlternateStartingTime": "0001-01-01T00:00:00Z",
+          "AlternateEndingTime": "0001-01-01T00:00:00Z",
+          "Venue": null
+      }
+  ],
+  "hours": [
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "Type": {
+              "String": "regular",
+              "Valid": true
+          },
+          "Day": 1,
+          "OpeningTime": "0000-01-01T00:00:00Z",
+          "ClosingTime": "0000-01-01T00:00:00Z",
+          "IsClosed": false
+      }
+  ]
+}

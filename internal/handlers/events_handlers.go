@@ -15,25 +15,26 @@ import (
 	"github.com/uptrace/bun"
 
 	"github.com/roundtown-app/roundtown-api/api"
+	"github.com/roundtown-app/roundtown-api/internal/middleware"
 )
 
 // ----- GET helper struct -----
 
 type EventDetails struct {
-	Event             api.Event                   `json:"event"`
-	Venue			  api.Venue					  `json:"venue"`
-	VenueAssets	  	  api.VenueAssets			  `json:"venue_assets"`
-	Categories        []api.EventCategory         `json:"categories"`
-	Location          api.EventLocation           `json:"location"`
-	Ratings           []api.EventRating           `json:"ratings"`
-	Assets            []api.EventAssets           `json:"assets"`
-	Population        api.EventPopulation         `json:"population"`
-	IsSaved           bool                        `json:"is_saved"`
-	IsVisited         bool                        `json:"is_visited"`
-	IsSharedFrom      bool                        `json:"is_shared_from"`
-	IsSharedTo        bool                        `json:"is_shared_to"`
-	RecurrencePattern *api.EventRecurrencePattern `json:"recurrence_pattern,omitempty"`
-	Exceptions        []api.EventException        `json:"exceptions,omitempty"`
+	Event             api.Event                  `json:"event"`
+	Venue             api.Venue                  `json:"venue"`
+	VenueAssets       api.VenueAssets            `json:"venue_assets"`
+	Categories        []api.EventCategory        `json:"categories"`
+	Location          api.EventLocation          `json:"location"`
+	Ratings           []api.EventRating          `json:"ratings"`
+	Assets            []api.EventAssets          `json:"assets"`
+	Population        api.EventPopulation        `json:"population"`
+	IsSaved           bool                       `json:"is_saved"`
+	IsVisited         bool                       `json:"is_visited"`
+	IsSharedFrom      bool                       `json:"is_shared_from"`
+	IsSharedTo        bool                       `json:"is_shared_to"`
+	RecurrencePattern api.EventRecurrencePattern `json:"recurrence_pattern,omitempty"`
+	Exceptions        []api.EventException       `json:"exceptions,omitempty"`
 }
 
 // ----- PUT helper structs -----
@@ -47,7 +48,6 @@ type EventUpdate struct {
 	IsDeal            *bool                       `json:"is_deal"`
 	StartingTime      *time.Time                  `json:"starting_time"`
 	EndingTime        *time.Time                  `json:"ending_time"`
-	Recurring         *int                        `json:"recurring"`
 	VenueID           *uuid.UUID                  `json:"venue_id"`
 	Categories        []string                    `json:"categories"`
 	Location          *EventLocationUpdate        `json:"location"`
@@ -76,6 +76,7 @@ type EventSearchParams struct {
 	StartingTime           *time.Time `json:"starting_time"`
 	EndingTime             *time.Time `json:"ending_time"`
 	VenueID                *uuid.UUID `json:"venue_id"`
+	VenueTitle             *string    `json:"venue_title"`
 	OwnerID                *uuid.UUID `json:"owner_id"`
 	Category               *string    `json:"category"`
 	PopulationUserCountMin *int       `json:"population_user_count_min"`
@@ -84,13 +85,37 @@ type EventSearchParams struct {
 
 // ----- POST helper struct -----
 
-type EventInput struct {
-	Event             api.Event                   `json:"event"`
-	Categories        []string                    `json:"categories"`
-	Location          api.EventLocation           `json:"location"`
-	Assets            []api.EventAssets           `json:"assets"`
-	RecurrencePattern *api.EventRecurrencePattern `json:"recurrence_pattern,omitempty"`
-	Exceptions        []api.EventException        `json:"exceptions,omitempty"`
+type EventRequest struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Detailed    string `json:"detailed"`
+	Location    struct {
+		Longitude float64 `json:"longitude"`
+		Latitude  float64 `json:"latitude"`
+		Address   string  `json:"address"`
+	} `json:"location"`
+	Categories        []string `json:"categories"`
+	Price             int      `json:"price"`
+	Sponsor           int      `json:"sponsor"`
+	IsDeal            bool     `json:"is_deal"`
+	StartingTime      string   `json:"starting_time"`
+	EndingTime        string   `json:"ending_time"`
+	VenueID           string   `json:"venue_id"`
+	OwnerID           string   `json:"owner_id"`
+	Assets            []string `json:"assets"`
+	RecurrencePattern struct {
+		Frequency   string `json:"frequency"`
+		DaysOfWeek  []int  `json:"days_of_week,omitempty"`
+		WeekOfMonth []int  `json:"week_of_month,omitempty"`
+		StartDate   string `json:"start_date"`
+		EndDate     string `json:"end_date"`
+	} `json:"recurrence_pattern,omitempty"`
+	Exceptions []struct {
+		ExceptionDate      string `json:"exception_date"`
+		IsCancelled        bool   `json:"is_cancelled"`
+		AlternateStartTime string `json:"alternate_start_time,omitempty"`
+		AlternateEndTime   string `json:"alternate_end_time,omitempty"`
+	} `json:"exceptions,omitempty"`
 }
 
 // ----- GET helper functions -----
@@ -108,7 +133,7 @@ func (h *Handlers) getEventDetails(ctx context.Context, eventID uuid.UUID, userI
 	}
 
 	// Fetch venue details
-    err = h.DB.NewSelect().
+	err = h.DB.NewSelect().
 		Model(&details.Venue).
 		Where("id = ?", details.Event.VenueID).
 		Scan(ctx)
@@ -117,7 +142,7 @@ func (h *Handlers) getEventDetails(ctx context.Context, eventID uuid.UUID, userI
 	}
 
 	// Fetch venue assets
-    err = h.DB.NewSelect().
+	err = h.DB.NewSelect().
 		Model(&details.VenueAssets).
 		Where("venue_id = ?", details.Event.VenueID).
 		Scan(ctx)
@@ -237,7 +262,7 @@ func (h *Handlers) getEventDetails(ctx context.Context, eventID uuid.UUID, userI
 // ----- PUT helper functions -----
 
 func (h *Handlers) isEventOwner(ctx context.Context, eventID, userID uuid.UUID) (bool, error) {
-	if ctx.Value("userRole").(string) == "admin" {
+	if ctx.Value(middleware.AccountTypeKey).(string) == "admin" {
 		return true, nil
 	}
 
@@ -270,7 +295,6 @@ func (h *Handlers) updateEvent(ctx context.Context, tx bun.Tx, eventID uuid.UUID
 		Set("is_deal = COALESCE(?, is_deal)", update.IsDeal).
 		Set("starting_time = COALESCE(?, starting_time)", update.StartingTime).
 		Set("ending_time = COALESCE(?, ending_time)", update.EndingTime).
-		Set("recurring = COALESCE(?, recurring)", update.Recurring).
 		Set("venue_id = COALESCE(?, venue_id)", update.VenueID).
 		Exec(ctx)
 	if err != nil {
@@ -546,10 +570,7 @@ func (h *Handlers) handleGetEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := uuid.Parse(ctx.Value("userID").(string))
-	if err != nil {
-		userID = uuid.Nil
-	}
+	userID := ctx.Value(middleware.UserIDKey).(uuid.UUID)
 
 	details, err := h.getEventDetails(ctx, eventID, userID)
 	if err != nil {
@@ -577,8 +598,8 @@ func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get userID from context
-	userID, ok := ctx.Value("userID").(uuid.UUID)
-	if !ok {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -638,8 +659,8 @@ func (h *Handlers) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get userID from context
-	userID, ok := ctx.Value("userID").(uuid.UUID)
-	if !ok {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -696,7 +717,8 @@ func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 		ColumnExpr("DISTINCT e.*").
 		Join("LEFT JOIN event_locations AS el ON e.location_id = el.id").
 		Join("LEFT JOIN event_categories AS ec ON e.id = ec.event_id").
-		Join("LEFT JOIN event_population AS ep ON e.id = ep.event_id")
+		Join("LEFT JOIN event_population AS ep ON e.id = ep.event_id").
+		Join("LEFT JOIN venues AS v ON e.venue_id = v.id")
 
 	// Apply search filters
 	if searchParams.Title != nil {
@@ -728,6 +750,9 @@ func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	if searchParams.VenueID != nil {
 		query = query.Where("e.venue_id = ?", *searchParams.VenueID)
+	}
+	if searchParams.VenueTitle != nil {
+		query = query.Where("v.title ILIKE ?", *searchParams.VenueTitle)
 	}
 	if searchParams.OwnerID != nil {
 		query = query.Where("e.owner_id = ?", *searchParams.OwnerID)
@@ -762,99 +787,202 @@ func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var input EventInput
+	// Get userID from context
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
+		slog.Error(userID.String() + " could not be auth'd")
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
 
-	// Parse JSON input
-	err := json.NewDecoder(r.Body).Decode(&input)
-	if err != nil {
-		http.Error(w, "Invalid JSON input", http.StatusBadRequest)
+	// Decode request body
+	var req EventRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	// Start a transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
+	tx, err := h.DB.BeginTx(r.Context(), nil)
 	if err != nil {
+		slog.Error(err.Error())
 		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
 		return
 	}
 	defer tx.Rollback()
 
-	// Insert Event
-	input.Event.ID = uuid.New()
-	_, err = tx.NewInsert().Model(&input.Event).Exec(ctx)
+	// Generate UUIDs
+	new_event_id, err := uuid.NewV7()
 	if err != nil {
-		http.Error(w, "Failed to insert event", http.StatusInternalServerError)
+		slog.Error(err.Error())
+		http.Error(w, "Failed to generate UUID", http.StatusInternalServerError)
 		return
 	}
 
-	// Insert EventLocation
-	_, err = tx.NewInsert().Model(&input.Location).Exec(ctx)
+	new_event_location_id, err := uuid.NewV7()
 	if err != nil {
-		http.Error(w, "Failed to insert event location", http.StatusInternalServerError)
+		slog.Error(err.Error())
+		http.Error(w, "Failed to generate UUID", http.StatusInternalServerError)
 		return
 	}
 
-	// Insert EventCategories
-	for _, category := range input.Categories {
-		eventCategory := api.EventCategory{
-			EventID:  input.Event.ID,
-			Category: category,
-		}
-		_, err = tx.NewInsert().Model(&eventCategory).Exec(ctx)
-		if err != nil {
-			http.Error(w, "Failed to insert event category", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	// Insert EventAssets
-	for _, asset := range input.Assets {
-		asset.EventID = input.Event.ID
-		_, err = tx.NewInsert().Model(&asset).Exec(ctx)
-		if err != nil {
-			http.Error(w, "Failed to insert event asset", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	// Insert EventRecurrencePattern if provided
-	if input.RecurrencePattern != nil {
-		input.RecurrencePattern.EventID = input.Event.ID.String()
-		_, err = tx.NewInsert().Model(input.RecurrencePattern).Exec(ctx)
-		if err != nil {
-			http.Error(w, "Failed to insert event recurrence pattern", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	// Insert EventExceptions if provided
-	if len(input.Exceptions) > 0 {
-		for i := range input.Exceptions {
-			input.Exceptions[i].EventID = input.Event.ID.String()
-		}
-		_, err = tx.NewInsert().Model(&input.Exceptions).Exec(ctx)
-		if err != nil {
-			http.Error(w, "Failed to insert event exceptions", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	// Commit the transaction
-	err = tx.Commit()
+	// Create event
+	startTime, err := time.Parse(time.RFC3339, req.StartingTime)
 	if err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Failed to parse StartingTime", http.StatusInternalServerError)
+		return
+	}
+
+	endTime, err := time.Parse(time.RFC3339, req.EndingTime)
+	if err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Failed to parse EndingTime", http.StatusInternalServerError)
+		return
+	}
+
+	venueId, err := uuid.Parse(req.VenueID)
+	if err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Failed to parse Venue UUID", http.StatusInternalServerError)
+		return
+	}
+
+	event := &api.Event{
+		ID:           new_event_id,
+		Title:        req.Title,
+		Description:  req.Description,
+		Detailed:     req.Detailed,
+		LocationID:   new_event_location_id,
+		Sponsor:      req.Sponsor,
+		Price:        req.Price,
+		IsDeal:       req.IsDeal,
+		StartingTime: startTime,
+		EndingTime:   endTime,
+		OwnerID:      userID,
+		VenueID:      venueId,
+		CreatedAt:    time.Now(),
+	}
+
+	if _, err := tx.NewInsert().Model(event).Exec(r.Context()); err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Failed to create event", http.StatusInternalServerError)
+		return
+	}
+
+	// Create event location
+	location := &api.EventLocation{
+		ID:        new_event_location_id,
+		Longitude: req.Location.Longitude,
+		Latitude:  req.Location.Latitude,
+		Address:   req.Location.Address,
+	}
+
+	if _, err := tx.NewInsert().Model(location).Exec(r.Context()); err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Failed to create event location", http.StatusInternalServerError)
+		return
+	}
+
+	// Create event categories
+	if len(req.Categories) > 0 {
+		categories := make([]api.EventCategory, len(req.Categories))
+		for i, category := range req.Categories {
+			categories[i] = api.EventCategory{
+				EventID:  event.ID,
+				Category: category,
+			}
+		}
+		if _, err := tx.NewInsert().Model(&categories).Exec(r.Context()); err != nil {
+			slog.Error(err.Error())
+			http.Error(w, "Failed to create event categories", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Create event assets
+	if len(req.Assets) > 0 {
+		assets := make([]api.EventAssets, len(req.Assets))
+		for i, assetID := range req.Assets {
+			assets[i] = api.EventAssets{
+				EventID: event.ID,
+				AssetID: assetID,
+			}
+		}
+		if _, err := tx.NewInsert().Model(&assets).Exec(r.Context()); err != nil {
+			slog.Error(err.Error())
+			http.Error(w, "Failed to create event assets", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Create event recurrence pattern if provided
+	if req.RecurrencePattern.EndDate != "" {
+		startDate, _ := time.Parse("2006-01-02", req.RecurrencePattern.StartDate)
+		endDate, _ := time.Parse("2006-01-02", req.RecurrencePattern.EndDate)
+
+		pattern := api.EventRecurrencePattern{
+			EventID:     event.ID.String(),
+			Frequency:   req.RecurrencePattern.Frequency,
+			DaysOfWeek:  req.RecurrencePattern.DaysOfWeek,
+			WeekOfMonth: req.RecurrencePattern.WeekOfMonth,
+			StartDate:   startDate,
+			EndDate:     endDate,
+		}
+		if _, err := tx.NewInsert().Model(&pattern).Exec(r.Context()); err != nil {
+			slog.Error(err.Error())
+			http.Error(w, "Failed to create event recurrence pattern", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Create event exceptions if provided
+	if len(req.Exceptions) > 0 {
+		exceptions := make([]api.EventException, len(req.Exceptions))
+		for i, e := range req.Exceptions {
+			exceptionDate, _ := time.Parse("2006-01-02", e.ExceptionDate)
+			startTime, _ := time.Parse("15:04", e.AlternateStartTime)
+			endTime, _ := time.Parse("15:04", e.AlternateEndTime)
+
+			exceptions[i] = api.EventException{
+				EventID:               event.ID.String(),
+				ExceptionDate:         exceptionDate,
+				IsCancelled:           e.IsCancelled,
+				AlternateStartingTime: startTime,
+				AlternateEndingTime:   endTime,
+			}
+		}
+		if _, err := tx.NewInsert().Model(&exceptions).Exec(r.Context()); err != nil {
+			slog.Error(err.Error())
+			http.Error(w, "Failed to create event exceptions", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Initialize event population
+	population := &api.EventPopulation{
+		EventID:     event.ID,
+		UserCount:   0,
+		LastUpdated: time.Now(),
+	}
+	if _, err := tx.NewInsert().Model(population).Exec(r.Context()); err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Failed to create event population", http.StatusInternalServerError)
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		slog.Error(err.Error())
 		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
 		return
 	}
 
-	// Prepare the response
-	response := map[string]interface{}{
-		"message": "Event created successfully",
-		"eventID": input.Event.ID,
-	}
-
-	// Send JSON response
+	// Return the created event ID
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(map[string]string{
+		"id": event.ID.String(),
+	})
 }

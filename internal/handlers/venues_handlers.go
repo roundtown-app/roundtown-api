@@ -15,6 +15,7 @@ import (
 	"github.com/uptrace/bun"
 
 	"github.com/roundtown-app/roundtown-api/api"
+	"github.com/roundtown-app/roundtown-api/internal/middleware"
 )
 
 // ----- GET helper struct -----
@@ -74,13 +75,34 @@ type VenueSearchParams struct {
 
 // ----- POST helper struct -----
 
-type VenueInput struct {
-	Venue      api.Venue            `json:"venue"`
-	Categories []string             `json:"categories"`
-	Location   api.VenueLocation    `json:"location"`
-	Assets     []api.VenueAssets    `json:"assets"`
-	Exceptions []api.VenueException `json:"exceptions"`
-	Hours      []api.VenueHours     `json:"hours"`
+type VenueRequest struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Detailed    string `json:"detailed"`
+	Location    struct {
+		Longitude float64 `json:"longitude"`
+		Latitude  float64 `json:"latitude"`
+		Address   string  `json:"address"`
+	} `json:"location"`
+	Categories []string `json:"categories"`
+	Price      int      `json:"price"`
+	Sponsor    int      `json:"sponsor"`
+	Hidden     bool     `json:"hidden"`
+	OwnerID    string   `json:"owner_id"`
+	Assets     []string `json:"assets"`
+	Hours      []struct {
+		Type        string `json:"type"`
+		Day         int    `json:"day"`
+		OpeningTime string `json:"opening_time"`
+		ClosingTime string `json:"closing_time"`
+		IsClosed    bool   `json:"is_closed"`
+	} `json:"hours,omitempty"`
+	Exceptions []struct {
+		ExceptionDate      string `json:"exception_date"`
+		IsClosed           bool   `json:"is_closed"`
+		AlternateStartTime string `json:"alternate_start_time,omitempty"`
+		AlternateEndTime   string `json:"alternate_end_time,omitempty"`
+	} `json:"exceptions,omitempty"`
 }
 
 // ----- GET helper functions -----
@@ -209,7 +231,7 @@ func (h *Handlers) getVenueDetails(ctx context.Context, venueID uuid.UUID, userI
 // ----- PUT helper functions -----
 
 func (h *Handlers) isVenueOwner(ctx context.Context, venueID, userID uuid.UUID) (bool, error) {
-	if ctx.Value("userRole").(string) == "admin" {
+	if ctx.Value(middleware.AccountTypeKey).(string) == "admin" {
 		return true, nil
 	}
 
@@ -468,7 +490,7 @@ func (h *Handlers) updateVenueHours(ctx context.Context, tx bun.Tx, venueID uuid
 
 	// Insert new hours
 	for _, hours := range newHours {
-		hours.VenueID = venueID.String()
+		hours.VenueID = venueID
 		_, err := tx.NewInsert().
 			Model(&hours).
 			Exec(ctx)
@@ -517,9 +539,10 @@ func (h *Handlers) handleGetVenue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := uuid.Parse(ctx.Value("userID").(string))
-	if err != nil {
-		userID = uuid.Nil
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
 	}
 
 	details, err := h.getVenueDetails(ctx, venueID, userID)
@@ -548,8 +571,8 @@ func (h *Handlers) handlePutVenue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get userID from context
-	userID, ok := ctx.Value("userID").(uuid.UUID)
-	if !ok {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -609,8 +632,8 @@ func (h *Handlers) handleDeleteVenue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get userID from context
-	userID, ok := ctx.Value("userID").(uuid.UUID)
-	if !ok {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -721,97 +744,182 @@ func (h *Handlers) handleVenueSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) handlePostVenue(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var input VenueInput
+	// Get userID from context
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
+		slog.Error(userID.String() + " could not be auth'd")
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
 
-	// Parse JSON input
-	err := json.NewDecoder(r.Body).Decode(&input)
-	if err != nil {
-		http.Error(w, "Invalid JSON input", http.StatusBadRequest)
+	// Decode request body
+	var req VenueRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	// Start a transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
+	tx, err := h.DB.BeginTx(r.Context(), nil)
 	if err != nil {
+		slog.Error(err.Error())
 		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
 		return
 	}
 	defer tx.Rollback()
 
-	// Insert Venue
-	input.Venue.ID = uuid.New()
-	_, err = tx.NewInsert().Model(&input.Venue).Exec(ctx)
+	// Generate UUIDs
+	new_venue_id, err := uuid.NewV7()
 	if err != nil {
-		http.Error(w, "Failed to insert venue", http.StatusInternalServerError)
+		slog.Error(err.Error())
+		http.Error(w, "Failed to generate UUID", http.StatusInternalServerError)
 		return
 	}
 
-	// Insert VenueLocation
-	_, err = tx.NewInsert().Model(&input.Location).Exec(ctx)
+	new_venue_location_id, err := uuid.NewV7()
 	if err != nil {
-		http.Error(w, "Failed to insert venue location", http.StatusInternalServerError)
+		slog.Error(err.Error())
+		http.Error(w, "Failed to generate UUID", http.StatusInternalServerError)
 		return
 	}
 
-	// Insert VenueCategories
-	for _, category := range input.Categories {
-		venueCategory := api.VenueCategory{
-			VenueID:  input.Venue.ID,
-			Category: category,
+	// Create venue
+	venue := &api.Venue{
+		ID:          new_venue_id,
+		Title:       req.Title,
+		Description: req.Description,
+		Detailed:    req.Detailed,
+		LocationID:  new_venue_location_id,
+		Price:       req.Price,
+		Sponsor:     req.Sponsor,
+		Hidden:      req.Hidden,
+		OwnerID:     userID,
+		CreatedAt:   time.Now(),
+	}
+
+	if _, err := tx.NewInsert().Model(venue).Exec(r.Context()); err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Failed to create venue", http.StatusInternalServerError)
+		return
+	}
+
+	// Create venue location
+	location := &api.VenueLocation{
+		ID:        new_venue_location_id,
+		Longitude: req.Location.Longitude,
+		Latitude:  req.Location.Latitude,
+		Address:   req.Location.Address,
+	}
+
+	if _, err := tx.NewInsert().Model(location).Exec(r.Context()); err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Failed to create venue location", http.StatusInternalServerError)
+		return
+	}
+
+	// Create venue categories
+	if len(req.Categories) > 0 {
+		categories := make([]api.VenueCategory, len(req.Categories))
+		for i, category := range req.Categories {
+			categories[i] = api.VenueCategory{
+				VenueID:  venue.ID,
+				Category: category,
+			}
 		}
-		_, err = tx.NewInsert().Model(&venueCategory).Exec(ctx)
-		if err != nil {
-			http.Error(w, "Failed to insert venue category", http.StatusInternalServerError)
+		if _, err := tx.NewInsert().Model(&categories).Exec(r.Context()); err != nil {
+			slog.Error(err.Error())
+			http.Error(w, "Failed to create venue categories", http.StatusInternalServerError)
 			return
 		}
 	}
 
-	// Insert VenueAssets
-	for _, asset := range input.Assets {
-		asset.VenueID = input.Venue.ID
-		_, err = tx.NewInsert().Model(&asset).Exec(ctx)
-		if err != nil {
-			http.Error(w, "Failed to insert venue asset", http.StatusInternalServerError)
+	// Create venue assets
+	if len(req.Assets) > 0 {
+		assets := make([]api.VenueAssets, len(req.Assets))
+		for i, assetID := range req.Assets {
+			assets[i] = api.VenueAssets{
+				VenueID: venue.ID,
+				AssetID: assetID,
+			}
+		}
+		if _, err := tx.NewInsert().Model(&assets).Exec(r.Context()); err != nil {
+			slog.Error(err.Error())
+			http.Error(w, "Failed to create venue assets", http.StatusInternalServerError)
 			return
 		}
 	}
 
-	// Insert VenueExceptions
-	for _, exception := range input.Exceptions {
-		exception.VenueID = input.Venue.ID.String()
-		_, err = tx.NewInsert().Model(&exception).Exec(ctx)
-		if err != nil {
-			http.Error(w, "Failed to insert venue exception", http.StatusInternalServerError)
+	// Create venue hours if provided
+	if len(req.Hours) > 0 {
+		//hours := make([]api.VenueHours, len(req.Hours))
+		for _, day_hours := range req.Hours {
+			openTime, _ := time.Parse("0000-01-01 15:04:00+00:00", day_hours.OpeningTime)
+			closeTime, _ := time.Parse("0000-01-01 15:04:00+00:00", day_hours.ClosingTime)
+
+			hours_instance := api.VenueHours{
+				VenueID:     venue.ID,
+				Type:        sql.NullString{String: day_hours.Type, Valid: day_hours.Type != ""},
+				Day:         day_hours.Day,
+				OpeningTime: openTime,
+				ClosingTime: closeTime,
+				IsClosed:    day_hours.IsClosed,
+			}
+
+			if _, err := tx.NewInsert().Model(&hours_instance).Exec(r.Context()); err != nil {
+				slog.Error(err.Error())
+				http.Error(w, "Failed to create venue hours", http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
+	// Create venue exceptions if provided
+	if len(req.Exceptions) > 0 {
+		exceptions := make([]api.VenueException, len(req.Exceptions))
+		for i, e := range req.Exceptions {
+			exceptionDate, _ := time.Parse("2006-01-02", e.ExceptionDate)
+			startTime, _ := time.Parse("15:04", e.AlternateStartTime)
+			endTime, _ := time.Parse("15:04", e.AlternateEndTime)
+
+			exceptions[i] = api.VenueException{
+				VenueID:               venue.ID.String(),
+				ExceptionDate:         exceptionDate,
+				IsClosed:              e.IsClosed,
+				AlternateStartingTime: startTime,
+				AlternateEndingTime:   endTime,
+			}
+		}
+		if _, err := tx.NewInsert().Model(&exceptions).Exec(r.Context()); err != nil {
+			slog.Error(err.Error())
+			http.Error(w, "Failed to create venue exceptions", http.StatusInternalServerError)
 			return
 		}
 	}
 
-	// Insert VenueHours
-	for _, hours := range input.Hours {
-		hours.VenueID = input.Venue.ID.String()
-		_, err = tx.NewInsert().Model(&hours).Exec(ctx)
-		if err != nil {
-			http.Error(w, "Failed to insert venue hours", http.StatusInternalServerError)
-			return
-		}
+	// Initialize venue population
+	population := &api.VenuePopulation{
+		VenueID:     venue.ID,
+		UserCount:   0,
+		LastUpdated: time.Now(),
+	}
+	if _, err := tx.NewInsert().Model(population).Exec(r.Context()); err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Failed to create venue population", http.StatusInternalServerError)
+		return
 	}
 
-	// Commit the transaction
-	err = tx.Commit()
-	if err != nil {
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		slog.Error(err.Error())
 		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
 		return
 	}
 
-	// Prepare the response
-	response := map[string]interface{}{
-		"message": "Venue created successfully",
-		"venueID": input.Venue.ID,
-	}
-
-	// Send JSON response
+	// Return the created venue ID
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(map[string]string{
+		"id": venue.ID.String(),
+	})
 }

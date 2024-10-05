@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/roundtown-app/roundtown-api/api"
+	"github.com/roundtown-app/roundtown-api/internal/middleware"
 )
 
 // ----- PUT helper struct -----
@@ -26,6 +27,19 @@ type UserSearchCriteria struct {
 }
 
 // ----- Request handlers -----
+
+func (h *Handlers) handleGetSelf(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+
+	user := new(api.User)
+	err := h.DB.NewSelect().Model(user).Where("user_id = ?", userID).Scan(r.Context())
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	json.NewEncoder(w).Encode(user)
+}
 
 func (h *Handlers) handleGetUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := uuid.Parse(chi.URLParam(r, "userID"))
@@ -48,8 +62,8 @@ func (h *Handlers) handlePutUser(w http.ResponseWriter, r *http.Request) {
 	var user UserUpdate
 	ctx := r.Context()
 
-	userID, ok := ctx.Value("userID").(string)
-	if !ok {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -72,8 +86,8 @@ func (h *Handlers) handlePutUser(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) handlePutUserLocation(w http.ResponseWriter, r *http.Request) {
 	var location api.UserLocations
 
-	userID, ok := r.Context().Value("userID").(string)
-	if !ok {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -84,10 +98,7 @@ func (h *Handlers) handlePutUserLocation(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	location.UserID, err = uuid.Parse(userID)
-	if err != nil {
-		location.UserID = uuid.Nil
-	}
+	location.UserID = userID
 
 	location.LastUpdated = time.Now()
 
@@ -109,8 +120,8 @@ func (h *Handlers) handlePutUserLocation(w http.ResponseWriter, r *http.Request)
 func (h *Handlers) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	var user api.User
 
-	userID, ok := r.Context().Value("userID").(string)
-	if !ok {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -121,10 +132,7 @@ func (h *Handlers) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.UserID, err = uuid.Parse(userID)
-	if err != nil {
-		user.UserID = uuid.Nil
-	}
+	user.UserID = userID
 
 	_, err = h.DB.NewDelete().Model(&user).Where("user_id = ?", user.UserID).Exec(r.Context())
 	if err != nil {

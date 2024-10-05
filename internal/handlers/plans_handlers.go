@@ -14,6 +14,7 @@ import (
 	"github.com/uptrace/bun"
 
 	"github.com/roundtown-app/roundtown-api/api"
+	"github.com/roundtown-app/roundtown-api/internal/middleware"
 )
 
 // ----- GET helper struct -----
@@ -295,8 +296,8 @@ func (h *Handlers) handleGetPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := uuid.Parse(ctx.Value("userID").(string))
-	if err != nil {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -325,8 +326,8 @@ func (h *Handlers) handlePutPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := uuid.Parse(ctx.Value("userID").(string))
-	if err != nil {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -404,8 +405,8 @@ func (h *Handlers) handleDeletePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := uuid.Parse(ctx.Value("userID").(string))
-	if err != nil {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}

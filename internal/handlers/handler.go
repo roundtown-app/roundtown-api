@@ -61,6 +61,7 @@ func (h *Handlers) Handler(router *chi.Mux) {
 		})
 
 		apiRouter.Route("/users", func(userRouter chi.Router) {
+			userRouter.Get("/self", h.handleGetSelf)
 			userRouter.Get("/{userID}", h.handleGetUser)
 			userRouter.Put("/", h.handlePutUser)
 			userRouter.Put("/updateLocation", h.handlePutUserLocation)

@@ -3,6 +3,9 @@ package handlers
 import (
 	"io"
 	"net/http"
+
+	"github.com/google/uuid"
+	"github.com/roundtown-app/roundtown-api/internal/middleware"
 )
 
 func (h *Handlers) forwardRequest(w http.ResponseWriter, url string) {
@@ -20,39 +23,39 @@ func (h *Handlers) forwardRequest(w http.ResponseWriter, url string) {
 
 func (h *Handlers) handleGetFeedRec(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userID, ok := ctx.Value("userID").(string)
-	if !ok {
+	userID := ctx.Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
 
-	url := h.RecommendationServerURL + "/feed-recs/" + userID
+	url := h.RecommendationServerURL + "/feed-recs/" + userID.String()
 
 	h.forwardRequest(w, url)
 }
 
 func (h *Handlers) handleGetPlanRec(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userID, ok := ctx.Value("userID").(string)
-	if !ok {
+	userID := ctx.Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
 
-	url := h.RecommendationServerURL + "/plan-recs/" + userID
+	url := h.RecommendationServerURL + "/plan-recs/" + userID.String()
 
 	h.forwardRequest(w, url)
 }
 
 func (h *Handlers) handleGetEBRec(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userID, ok := ctx.Value("userID").(string)
-	if !ok {
+	userID := ctx.Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
 
-	url := h.RecommendationServerURL + "/event-based-recs/" + userID
+	url := h.RecommendationServerURL + "/event-based-recs/" + userID.String()
 
 	h.forwardRequest(w, url)
 }

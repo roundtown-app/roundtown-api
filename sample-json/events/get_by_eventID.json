@@ -1,38 +1,81 @@
 {
-    "event": {
-      "id": "123e4567-e89b-12d3-a456-426614174000",
-      "title": "Summer Music Festival",
-      "description": "Annual outdoor music festival featuring local and international artists",
-      "detailed": "Join us for a weekend of great music, food, and fun...",
-      "price": 1,
-      "sponsor": 2,
-      "is_deal": false,
-      "starting_time": "2024-07-15T18:00:00Z",
-      "ending_time": "2024-07-17T23:00:00Z",
-      "recurring": 0,
-      "venue_id": "98765432-e89b-12d3-a456-426614174000",
-      "owner_id": "abcdef12-e89b-12d3-a456-426614174000",
-      "location_id": 1
-    },
-    "categories": [
-      "Music",
-      "Festival"
-    ],
-    "location": {
-      "longitude": -122.4194,
-      "latitude": 37.7749,
-      "address": "Golden Gate Park, San Francisco, CA 94122"
-    },
-    "assets": [
-      "asset1",
-      "asset2"
-    ],
-    "population": {
-      "user_count": 1500,
-      "last_updated": "2024-07-15T20:30:00Z"
-    },
-    "is_saved": true,
-    "is_visited": false,
-    "is_shared_from": false,
-    "is_shared_to": true
+  "event": {
+      "ID": "01925a93-b8ea-70f2-b259-75e6a06f15d5",
+      "Title": "food 2024",
+      "Description": "Annual food conference featuring industry leaders and innovative startups",
+      "Detailed": "Join us for three days of cutting-edge presentations, workshops, and networking opportunities...",
+      "LocationID": "01925a93-b8ea-70fa-9b20-5a02ba771932",
+      "ActivityCount": 0,
+      "Price": 4,
+      "Sponsor": 1,
+      "IsDeal": false,
+      "StartingTime": "2024-09-15T05:00:00-04:00",
+      "EndingTime": "2024-09-17T14:00:00-04:00",
+      "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+      "CreatedAt": "2024-10-04T22:48:03.562066-04:00",
+      "OwnerID": "019254f1-11c5-76ed-b1a5-6f79748ed44c"
+  },
+  "venue": {
+      "ID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+      "Title": "My Venue",
+      "Description": "A great venue",
+      "Detailed": "Detailed description here",
+      "LocationID": "019255af-3a7f-7874-945c-57f4e97f042a",
+      "ActivityCount": 0,
+      "Price": 100,
+      "Sponsor": 1,
+      "Hidden": false,
+      "CreatedAt": "2024-10-04T00:00:00.127554-04:00",
+      "OwnerID": "019254f1-11c5-76ed-b1a5-6f79748ed44c"
+  },
+  "venue_assets": {
+      "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+      "AssetID": "asset1"
+  },
+  "categories": [
+      {
+          "EventID": "01925a93-b8ea-70f2-b259-75e6a06f15d5",
+          "Category": "conference"
+      },
+      {
+          "EventID": "01925a93-b8ea-70f2-b259-75e6a06f15d5",
+          "Category": "food"
+      }
+  ],
+  "location": {
+      "ID": "01925a93-b8ea-70fa-9b20-5a02ba771932",
+      "Longitude": 123.456,
+      "Latitude": 78.9,
+      "Address": "123 Main St"
+  },
+  "ratings": null,
+  "assets": [
+      {
+          "EventID": "01925a93-b8ea-70f2-b259-75e6a06f15d5",
+          "AssetID": "idk"
+      },
+      {
+          "EventID": "01925a93-b8ea-70f2-b259-75e6a06f15d5",
+          "AssetID": "idk2"
+      }
+  ],
+  "population": {
+      "EventID": "01925a93-b8ea-70f2-b259-75e6a06f15d5",
+      "UserCount": 0,
+      "LastUpdated": "2024-10-04T22:48:03.571633-04:00"
+  },
+  "is_saved": false,
+  "is_visited": false,
+  "is_shared_from": false,
+  "is_shared_to": false,
+  "recurrence_pattern": {
+      "EventID": "01925a93-b8ea-70f2-b259-75e6a06f15d5",
+      "Frequency": "WEEKLY",
+      "DaysOfWeek": [
+          3
+      ],
+      "WeekOfMonth": null,
+      "StartDate": "0001-01-01T00:00:00Z",
+      "EndDate": "0001-01-01T00:00:00Z"
   }
+}
