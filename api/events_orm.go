@@ -12,6 +12,7 @@ type Event struct {
 
 	ID            uuid.UUID `bun:"id,pk,type:uuid"`
 	Title         string    `bun:"title,notnull"`
+	Tag			  string 	`bun:"tag"`
 	Description   string    `bun:"description"`
 	Detailed      string    `bun:"detailed"`
 	LocationID    uuid.UUID       `bun:"location_id,notnull,unique"`

@@ -43,6 +43,7 @@ type EventUpdate struct {
 	Title             *string                     `json:"title"`
 	Description       *string                     `json:"description"`
 	Detailed          *string                     `json:"detailed"`
+	Tag               *string                     `json:"tag"`
 	Price             *int                        `json:"price"`
 	Sponsor           *int                        `json:"sponsor"`
 	IsDeal            *bool                       `json:"is_deal"`
@@ -89,6 +90,7 @@ type EventRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Detailed    string `json:"detailed"`
+	Tag         string `json:"tag"`
 	Location    struct {
 		Longitude float64 `json:"longitude"`
 		Latitude  float64 `json:"latitude"`
@@ -290,6 +292,7 @@ func (h *Handlers) updateEvent(ctx context.Context, tx bun.Tx, eventID uuid.UUID
 		Set("title = COALESCE(?, title)", update.Title).
 		Set("description = COALESCE(?, description)", update.Description).
 		Set("detailed = COALESCE(?, detailed)", update.Detailed).
+		Set("tag = COALESCE(?, tag)", update.Tag).
 		Set("price = COALESCE(?, price)", update.Price).
 		Set("sponsor = COALESCE(?, sponsor)", update.Sponsor).
 		Set("is_deal = COALESCE(?, is_deal)", update.IsDeal).
@@ -854,6 +857,7 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 		Title:        req.Title,
 		Description:  req.Description,
 		Detailed:     req.Detailed,
+		Tag:          req.Tag,
 		LocationID:   new_event_location_id,
 		Sponsor:      req.Sponsor,
 		Price:        req.Price,

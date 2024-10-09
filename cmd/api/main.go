@@ -8,6 +8,7 @@ import (
 
 	firebase "firebase.google.com/go"
 	"github.com/go-chi/chi/v5"
+	"github.com/joho/godotenv"
 	"google.golang.org/api/option"
 
 	"github.com/roundtown-app/roundtown-api/db"
@@ -16,6 +17,16 @@ import (
 
 func main() {
 	slog.Info("Starting Roundtown API")
+
+	err := godotenv.Load()
+	if err != nil {
+		slog.Error("Error loading .env file")
+	}
+
+	dsn := os.Getenv("DATABASE_SOURCE_NAME")
+	recServerURL := os.Getenv("RECOMMENDATION_SERVER_URL")
+
+	slog.Info("Retrieved environment variables")
 
 	// Initialize the app with the service account
 	opt := option.WithCredentialsFile("./service_account.json")
@@ -35,9 +46,6 @@ func main() {
 
 	slog.Info("Initialized Firebase client")
 
-	recServerURL := ""
-
-	dsn := "postgres://postgres:password1@localhost:5432/postgres?sslmode=disable"
 	database, db_err := db.NewDB(dsn)
 	if db_err != nil {
 		slog.Error("Failed to initialize database: " + db_err.Error() + "\n")

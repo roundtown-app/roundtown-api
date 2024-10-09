@@ -39,6 +39,7 @@ type VenueDetails struct {
 
 type VenueUpdate struct {
 	Title       *string              `json:"title"`
+	Logo        *string              `json:"logo"`
 	Description *string              `json:"description"`
 	Detailed    *string              `json:"detailed"`
 	Price       *int                 `json:"price"`
@@ -77,6 +78,7 @@ type VenueSearchParams struct {
 
 type VenueRequest struct {
 	Title       string `json:"title"`
+	Logo        string `json:"logo"`
 	Description string `json:"description"`
 	Detailed    string `json:"detailed"`
 	Location    struct {
@@ -257,6 +259,7 @@ func (h *Handlers) updateVenue(ctx context.Context, tx bun.Tx, venueID uuid.UUID
 		Model(&api.Venue{}).
 		Where("id = ?", venueID).
 		Set("title = COALESCE(?, title)", update.Title).
+		Set("logo = COALESCE(?, logo)", update.Logo).
 		Set("description = COALESCE(?, description)", update.Description).
 		Set("detailed = COALESCE(?, detailed)", update.Detailed).
 		Set("price = COALESCE(?, price)", update.Price).
@@ -788,6 +791,7 @@ func (h *Handlers) handlePostVenue(w http.ResponseWriter, r *http.Request) {
 	venue := &api.Venue{
 		ID:          new_venue_id,
 		Title:       req.Title,
+		Logo:		 req.Logo,
 		Description: req.Description,
 		Detailed:    req.Detailed,
 		LocationID:  new_venue_location_id,

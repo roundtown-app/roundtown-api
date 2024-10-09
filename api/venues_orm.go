@@ -13,6 +13,7 @@ type Venue struct {
 
 	ID            uuid.UUID `bun:"id,pk,type:uuid"`
 	Title         string    `bun:"title,notnull"`
+	Logo          string	`bun:"logo"`
 	Description   string    `bun:"description"`
 	Detailed      string    `bun:"detailed"`
 	LocationID    uuid.UUID `bun:"location_id,notnull,unique"`
