@@ -80,18 +80,28 @@ func (h *Handlers) Handler(router *chi.Mux) {
 			intRouter.Get("/savedItems", h.handleGetSavedItems)
 			intRouter.Put("/saveItem", h.handleSaveItem)
 			intRouter.Delete("/unsaveItem", h.handleUnsaveItem)
+
+			intRouter.Get("/subscribedItems", h.handleGetSubscribedItems)
+			intRouter.Put("/subscribeItem", h.handleSubscribeItem)
+			intRouter.Delete("/unsubscribeItem", h.handleUnsubscribeItem)
+
+			intRouter.Get("/visitedItems", h.handleGetVisitedItems)
+			intRouter.Put("/visitItem", h.handleVisitItem)
+
+			intRouter.Get("/sharedItems", h.handleGetSharedItems)
+			intRouter.Put("/shareItem", h.handleShareItem)
 		})
 	})
 }
 
 func (h *Handlers) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
-    // Get current time
-    currentTime := time.Now()
+	// Get current time
+	currentTime := time.Now()
 
-    // Format the response
-    response := currentTime.Format("2006-01-02 15:04:05")
+	// Format the response
+	response := currentTime.Format("2006-01-02 15:04:05")
 
-    // Set the response header and write the response
-    w.WriteHeader(http.StatusOK)
-    w.Write([]byte(response))
+	// Set the response header and write the response
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(response))
 }
