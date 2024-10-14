@@ -1,30 +1,11 @@
 package handlers
 
 import (
-	"net/http"
-	"time"
-
-	"firebase.google.com/go/auth"
 	"github.com/go-chi/chi/v5"
 	chi_middleware "github.com/go-chi/chi/v5/middleware"
 
-	"github.com/roundtown-app/roundtown-api/db"
 	"github.com/roundtown-app/roundtown-api/internal/middleware"
 )
-
-type Handlers struct {
-	DB                      *db.DB
-	RecommendationServerURL string
-	AuthClient              *auth.Client
-}
-
-func NewHandler(db *db.DB, recServerURL string, client *auth.Client) *Handlers {
-	return &Handlers{
-		DB:                      db,
-		RecommendationServerURL: recServerURL,
-		AuthClient:              client,
-	}
-}
 
 func (h *Handlers) Handler(router *chi.Mux) {
 	router.Use(chi_middleware.StripSlashes)
@@ -38,6 +19,7 @@ func (h *Handlers) Handler(router *chi.Mux) {
 
 		apiRouter.Route("/events", func(eventRouter chi.Router) {
 			eventRouter.Get("/{eventID}", h.handleGetEvent)
+			eventRouter.Post("/get-events", h.handleBulkGetEvent)
 			eventRouter.Put("/{eventID}", h.handlePutEvent)
 			eventRouter.Delete("/{eventID}", h.handleDeleteEvent)
 			eventRouter.Post("/search", h.handleEventSearch)
@@ -46,6 +28,7 @@ func (h *Handlers) Handler(router *chi.Mux) {
 
 		apiRouter.Route("/venues", func(venueRouter chi.Router) {
 			venueRouter.Get("/{venueID}", h.handleGetVenue)
+			venueRouter.Post("/get-venues", h.handleBulkGetVenue)
 			venueRouter.Put("/{venueID}", h.handlePutVenue)
 			venueRouter.Delete("/{venueID}", h.handleDeleteVenue)
 			venueRouter.Post("/search", h.handleVenueSearch)
@@ -54,6 +37,7 @@ func (h *Handlers) Handler(router *chi.Mux) {
 
 		apiRouter.Route("/plans", func(planRouter chi.Router) {
 			planRouter.Get("/{planID}", h.handleGetPlan)
+			planRouter.Post("/get-plans", h.handleBulkGetPlan)
 			planRouter.Put("/{planID}", h.handlePutPlan)
 			planRouter.Delete("/{planID}", h.handleDeletePlan)
 			planRouter.Post("/search", h.handlePlanSearch)
@@ -66,8 +50,8 @@ func (h *Handlers) Handler(router *chi.Mux) {
 			userRouter.Put("/", h.handlePutUser)
 			userRouter.Put("/updateLocation", h.handlePutUserLocation)
 			userRouter.Delete("/", h.handleDeleteUser)
-			userRouter.Put("/search", h.handleUserSearch)
-			userRouter.Post("/", h.handlePostUser)
+			userRouter.Post("/search", h.handleUserSearch)
+			// userRouter.Post("/", h.handlePostUser)
 		})
 
 		apiRouter.Route("/recommendations", func(recRouter chi.Router) {
@@ -92,16 +76,4 @@ func (h *Handlers) Handler(router *chi.Mux) {
 			intRouter.Put("/shareItem", h.handleShareItem)
 		})
 	})
-}
-
-func (h *Handlers) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
-	// Get current time
-	currentTime := time.Now()
-
-	// Format the response
-	response := currentTime.Format("2006-01-02 15:04:05")
-
-	// Set the response header and write the response
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(response))
 }

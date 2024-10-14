@@ -179,24 +179,24 @@ func (h *Handlers) handleUserSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-func (h *Handlers) handlePostUser(w http.ResponseWriter, r *http.Request) {
-	var user api.User
-	err := json.NewDecoder(r.Body).Decode(&user)
-	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+// func (h *Handlers) handlePostUser(w http.ResponseWriter, r *http.Request) {
+// 	var user api.User
+// 	err := json.NewDecoder(r.Body).Decode(&user)
+// 	if err != nil {
+// 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+// 		return
+// 	}
 
-	user.UserID = uuid.New()
-	user.AccountCreated = time.Now()
-	user.AccountType = "user"
+// 	user.UserID = uuid.New()
+// 	user.AccountCreated = time.Now()
+// 	user.AccountType = "user"
 
-	_, err = h.DB.NewInsert().Model(&user).Exec(r.Context())
-	if err != nil {
-		http.Error(w, "Failed to create user", http.StatusInternalServerError)
-		return
-	}
+// 	_, err = h.DB.NewInsert().Model(&user).Exec(r.Context())
+// 	if err != nil {
+// 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+// 		return
+// 	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
-}
+// 	w.WriteHeader(http.StatusCreated)
+// 	json.NewEncoder(w).Encode(user)
+// }

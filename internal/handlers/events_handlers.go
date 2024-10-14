@@ -23,10 +23,8 @@ import (
 type EventDetails struct {
 	Event             api.Event                  `json:"event"`
 	Venue             api.Venue                  `json:"venue"`
-	VenueAssets       api.VenueAssets            `json:"venue_assets"`
 	Categories        []api.EventCategory        `json:"categories"`
 	Location          api.EventLocation          `json:"location"`
-	Ratings           []api.EventRating          `json:"ratings"`
 	Assets            []api.EventAssets          `json:"assets"`
 	Population        api.EventPopulation        `json:"population"`
 	IsSaved           bool                       `json:"is_saved"`
@@ -143,15 +141,6 @@ func (h *Handlers) getEventDetails(ctx context.Context, eventID uuid.UUID, userI
 		return nil, fmt.Errorf("failed to fetch venue: %w", err)
 	}
 
-	// Fetch venue assets
-	err = h.DB.NewSelect().
-		Model(&details.VenueAssets).
-		Where("venue_id = ?", details.Event.VenueID).
-		Scan(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch venue assets: %w", err)
-	}
-
 	// Fetch categories
 	err = h.DB.NewSelect().
 		Model(&details.Categories).
@@ -168,15 +157,6 @@ func (h *Handlers) getEventDetails(ctx context.Context, eventID uuid.UUID, userI
 		Scan(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch event location: %w", err)
-	}
-
-	// Fetch ratings
-	err = h.DB.NewSelect().
-		Model(&details.Ratings).
-		Where("event_id = ?", eventID).
-		Scan(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch event ratings: %w", err)
 	}
 
 	// Fetch assets
@@ -590,6 +570,55 @@ func (h *Handlers) handleGetEvent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handlers) handleBulkGetEvent(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+    userID := ctx.Value(middleware.UserIDKey).(uuid.UUID)
+
+    var request struct {
+        Events []string `json:"events"`
+    }
+
+    if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    if len(request.Events) == 0 {
+        http.Error(w, "No event IDs provided", http.StatusBadRequest)
+        return
+    }
+
+    eventIDs := make([]uuid.UUID, 0, len(request.Events))
+    for _, idStr := range request.Events {
+        id, err := uuid.Parse(idStr)
+        if err != nil {
+            http.Error(w, fmt.Sprintf("Invalid event ID: %s", idStr), http.StatusBadRequest)
+            return
+        }
+        eventIDs = append(eventIDs, id)
+    }
+
+    var response struct {
+        Events []EventDetails `json:"events"`
+    }
+
+    for _, eventID := range eventIDs {
+        details, err := h.getEventDetails(ctx, eventID, userID)
+        if err != nil {
+            slog.Error("Error fetching event details", "error", err, "eventID", eventID)
+            continue // Skip this event and continue with others
+        }
+        response.Events = append(response.Events, *details)
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    if err := json.NewEncoder(w).Encode(response); err != nil {
+        slog.Error("Error encoding response", "error", err)
+        http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+        return
+    }
+}
+
 func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	eventIDStr := chi.URLParam(r, "eventID")
@@ -798,11 +827,31 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check that the user is either a business or admin
+	user_account_type := r.Context().Value(middleware.AccountTypeKey).(string)
+	if !(user_account_type == "business" || user_account_type == "admin") {
+		slog.Error(userID.String() + " is not a business or admin, so they cannot create a new event")
+		http.Error(w, "User does not have permission", http.StatusUnauthorized)
+		return
+	}
+
 	// Decode request body
 	var req EventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		slog.Error(err.Error())
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Check that the user owns the venue for which they're creating an event
+	isOwner, err := h.isVenueOwner(r.Context(), uuid.MustParse(req.VenueID), userID)
+	if err != nil {
+		slog.Error(err.Error())
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if !isOwner {
+		http.Error(w, "User does not have permission to create an event for given venue", http.StatusUnauthorized)
 		return
 	}
 

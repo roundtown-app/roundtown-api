@@ -563,6 +563,55 @@ func (h *Handlers) handleGetVenue(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handlers) handleBulkGetVenue(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+    userID := ctx.Value(middleware.UserIDKey).(uuid.UUID)
+
+    var request struct {
+        Venues []string `json:"venues"`
+    }
+
+    if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    if len(request.Venues) == 0 {
+        http.Error(w, "No venue IDs provided", http.StatusBadRequest)
+        return
+    }
+
+    venueIDs := make([]uuid.UUID, 0, len(request.Venues))
+    for _, idStr := range request.Venues {
+        id, err := uuid.Parse(idStr)
+        if err != nil {
+            http.Error(w, fmt.Sprintf("Invalid venue ID: %s", idStr), http.StatusBadRequest)
+            return
+        }
+        venueIDs = append(venueIDs, id)
+    }
+
+    var response struct {
+        Venues []VenueDetails `json:"venues"`
+    }
+
+    for _, venueID := range venueIDs {
+        details, err := h.getVenueDetails(ctx, venueID, userID)
+        if err != nil {
+            slog.Error("Error fetching venue details", "error", err, "venueID", venueID)
+            continue // Skip this venue and continue with others
+        }
+        response.Venues = append(response.Venues, *details)
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    if err := json.NewEncoder(w).Encode(response); err != nil {
+        slog.Error("Error encoding response", "error", err)
+        http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+        return
+    }
+}
+
 func (h *Handlers) handlePutVenue(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	venueIDStr := chi.URLParam(r, "venueID")
@@ -755,6 +804,14 @@ func (h *Handlers) handlePostVenue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check that the user is either a business or admin
+	user_account_type := r.Context().Value(middleware.AccountTypeKey).(string)
+	if !(user_account_type == "business" || user_account_type == "admin") {
+		slog.Error(userID.String() + " is not a business or admin, so they cannot create a new venue")
+		http.Error(w, "User does not have permission", http.StatusUnauthorized)
+		return
+	}
+
 	// Decode request body
 	var req VenueRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -791,7 +848,7 @@ func (h *Handlers) handlePostVenue(w http.ResponseWriter, r *http.Request) {
 	venue := &api.Venue{
 		ID:          new_venue_id,
 		Title:       req.Title,
-		Logo:		 req.Logo,
+		Logo:        req.Logo,
 		Description: req.Description,
 		Detailed:    req.Detailed,
 		LocationID:  new_venue_location_id,

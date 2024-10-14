@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -21,8 +23,8 @@ import (
 
 type PlanDetails struct {
 	Plan     api.Plan       `json:"plan"`
-	Venues	 []api.Venue	`json:"venues"`
-	Events	 []api.Event	`json:"events"`
+	Venues   []api.Venue    `json:"venues"`
+	Events   []api.Event    `json:"events"`
 	Users    []api.PlanUser `json:"users"`
 	IsOwner  bool           `json:"is_owner"`
 	IsMember bool           `json:"is_member"`
@@ -134,6 +136,10 @@ func (h *Handlers) getPlanDetails(ctx context.Context, planID uuid.UUID, userID 
 // ----- PUT helper functions -----
 
 func (h *Handlers) isPlanOwner(ctx context.Context, planID, userID uuid.UUID) (bool, error) {
+	if ctx.Value(middleware.AccountTypeKey).(string) == "admin" {
+		return true, nil
+	}
+
 	var plan api.Plan
 	err := h.DB.NewSelect().
 		Model(&plan).
@@ -238,18 +244,27 @@ func (h *Handlers) updatePlanUsers(ctx context.Context, tx bun.Tx, planID uuid.U
 func (h *Handlers) searchPlans(ctx context.Context, params PlanSearchParams) ([]PlanSearchResult, error) {
 	var results []PlanSearchResult
 
-	query := h.DB.NewSelect().Model((*api.Plan)(nil))
+	userID, ok := ctx.Value(middleware.UserIDKey).(uuid.UUID)
+	if !ok {
+		return nil, fmt.Errorf("user not authorized")
+	}
+
+	query := h.DB.NewSelect().
+		Model((*api.Plan)(nil)).
+		ColumnExpr("DISTINCT p.*").
+		Join("LEFT JOIN plan_users AS pu ON p.id = pu.plan_id").
+		Where("p.private = false OR p.creator_id = ? OR pu.user_id = ?", userID, userID)
 
 	if params.Title != "" {
-		query = query.Where("title ILIKE ?", "%"+params.Title+"%")
+		query = query.Where("p.title ILIKE ?", "%"+params.Title+"%")
 	}
 
 	if params.CreatorID != uuid.Nil {
-		query = query.Where("creator_id = ?", params.CreatorID)
+		query = query.Where("p.creator_id = ?", params.CreatorID)
 	}
 
 	if !params.Date.IsZero() {
-		query = query.Where("date::date = ?::date", params.Date)
+		query = query.Where("p.date::date = ?::date", params.Date)
 	}
 
 	err := query.Limit(10).Scan(ctx, &results)
@@ -308,9 +323,78 @@ func (h *Handlers) handleGetPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if user has permission to view plan
+	user_account_type := ctx.Value(middleware.AccountTypeKey).(string)
+	if details.Plan.Private && user_account_type != "admin" && userID != details.Plan.CreatorID && !slices.ContainsFunc(details.Users, func(n api.PlanUser) bool { return n.UserID == userID }) {
+		http.Error(w, "User not authorized to view plan", http.StatusUnauthorized)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(details)
 	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *Handlers) handleBulkGetPlan(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID := ctx.Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	userAccountType := ctx.Value(middleware.AccountTypeKey).(string)
+
+	var request struct {
+		Plans []string `json:"plans"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if len(request.Plans) == 0 {
+		http.Error(w, "No plan IDs provided", http.StatusBadRequest)
+		return
+	}
+
+	planIDs := make([]uuid.UUID, 0, len(request.Plans))
+	for _, idStr := range request.Plans {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Invalid plan ID: %s", idStr), http.StatusBadRequest)
+			return
+		}
+		planIDs = append(planIDs, id)
+	}
+
+	var response struct {
+		Plans []PlanDetails `json:"plans"`
+	}
+
+	for _, planID := range planIDs {
+		details, err := h.getPlanDetails(ctx, planID, userID)
+		if err != nil {
+			slog.Error("Error fetching plan details", "error", err, "planID", planID)
+			continue // Skip this plan and continue with others
+		}
+
+		// Check if user has permission to view plan
+		if details.Plan.Private && userAccountType != "admin" && userID != details.Plan.CreatorID && !slices.ContainsFunc(details.Users, func(n api.PlanUser) bool { return n.UserID == userID }) {
+			slog.Info("User not authorized to view plan", "userID", userID, "planID", planID)
+			continue // Skip this plan and continue with others
+		}
+
+		response.Plans = append(response.Plans, *details)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		slog.Error("Error encoding response", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
