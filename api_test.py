@@ -106,16 +106,19 @@ def make_request(method, endpoint, token, json_body=None):
     return response
 
 def save_response(response, endpoint, method, token):
-    endpoint_file = str(endpoint).replace("{", "").replace("}", "")
-    if endpoint_file[-1] != "/":
-        endpoint_file += "/"
+    if len(response.content):
+        endpoint_file = str(endpoint).replace("{", "").replace("}", "")
+        if endpoint_file[-1] != "/":
+            endpoint_file += "/"
+        else:
+            endpoint_file += "-"
+        response_file = f"./test-response-json{endpoint_file}{method.lower()}-{token}.json"
+        os.makedirs(os.path.dirname(response_file), exist_ok=True)
+        with open(response_file, 'w') as f:
+            json.dump(response.json(), f, indent=2)
+        print(f"  Response saved to: {response_file}")
     else:
-        endpoint_file += "-"
-    response_file = f"./test-response-json{endpoint_file}{method.lower()}-{token}.json"
-    os.makedirs(os.path.dirname(response_file), exist_ok=True)
-    with open(response_file, 'w') as f:
-        json.dump(response.json(), f, indent=2)
-    print(f"  Response saved to: {response_file}")
+        print('  No response body')
 
 def test_endpoint(method, endpoint, tokens, resource_type=None):
     print(f"Testing {method} {endpoint}")
@@ -186,7 +189,7 @@ endpoints = [
     ("GET", "/api/users/{userID}", "user"),
     # ("PUT", "/api/users", "user"),
     ("PUT", "/api/users/updateLocation", "user"),
-    ("PUT", "/api/users/search", "user"),
+    ("POST", "/api/users/search", "user"),
 
     # Venue endpoints
     ("POST", "/api/venues", "venue"),
@@ -217,10 +220,10 @@ endpoints = [
     # Interaction endpoints
     ("PUT", "/api/interactions/saveItem", None),
     ("GET", "/api/interactions/savedItems", None),
-    ("DELETE", "/api/interactions/unsaveItem", None),
+    ("POST", "/api/interactions/unsaveItem", None),
     ("PUT", "/api/interactions/subscribeItem", None),
     ("GET", "/api/interactions/subscribedItems", None),
-    ("DELETE", "/api/interactions/unsubscribeItem", None),
+    ("POST", "/api/interactions/unsubscribeItem", None),
     ("PUT", "/api/interactions/visitItem", None),
     ("GET", "/api/interactions/visitedItems", None),
     ("PUT", "/api/interactions/shareItem", None),

@@ -10,7 +10,7 @@ import (
 type SavedItem struct {
 	bun.BaseModel `bun:"table:saved_items,alias:si"`
 
-	ID      int       `bun:"id,pk,autoincrement"`
+	ID      uuid.UUID `bun:"id,pk"`
 	UserID  uuid.UUID `bun:"user_id,notnull"`
 	VenueID uuid.UUID `bun:"venue_id"`
 	EventID uuid.UUID `bun:"event_id"`
@@ -19,7 +19,7 @@ type SavedItem struct {
 type SubscribedItem struct {
 	bun.BaseModel `bun:"table:subscribed_items,alias:sui"`
 
-	ID      int       `bun:"id,pk,autoincrement"`
+	ID      uuid.UUID `bun:"id,pk"`
 	UserID  uuid.UUID `bun:"user_id,notnull"`
 	VenueID uuid.UUID `bun:"venue_id"`
 	EventID uuid.UUID `bun:"event_id"`
@@ -28,7 +28,7 @@ type SubscribedItem struct {
 type VisitedItem struct {
 	bun.BaseModel `bun:"table:visited_items,alias:vi"`
 
-	ID           int       `bun:"id,pk,autoincrement"`
+	ID           uuid.UUID `bun:"id,pk"`
 	UserID       uuid.UUID `bun:"user_id,notnull"`
 	VenueID      uuid.UUID `bun:"venue_id"`
 	EventID      uuid.UUID `bun:"event_id"`

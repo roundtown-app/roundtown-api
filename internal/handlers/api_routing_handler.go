@@ -63,11 +63,11 @@ func (h *Handlers) Handler(router *chi.Mux) {
 		apiRouter.Route("/interactions", func(intRouter chi.Router) {
 			intRouter.Get("/savedItems", h.handleGetSavedItems)
 			intRouter.Put("/saveItem", h.handleSaveItem)
-			intRouter.Delete("/unsaveItem", h.handleUnsaveItem)
+			intRouter.Post("/unsaveItem", h.handleUnsaveItem)
 
 			intRouter.Get("/subscribedItems", h.handleGetSubscribedItems)
 			intRouter.Put("/subscribeItem", h.handleSubscribeItem)
-			intRouter.Delete("/unsubscribeItem", h.handleUnsubscribeItem)
+			intRouter.Post("/unsubscribeItem", h.handleUnsubscribeItem)
 
 			intRouter.Get("/visitedItems", h.handleGetVisitedItems)
 			intRouter.Put("/visitItem", h.handleVisitItem)
