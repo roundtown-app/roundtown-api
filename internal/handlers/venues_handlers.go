@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/roundtown-app/roundtown-api/api"
 	"github.com/roundtown-app/roundtown-api/internal/middleware"
@@ -24,7 +26,6 @@ type VenueDetails struct {
 	Venue        api.Venue            `json:"venue"`
 	Categories   []api.VenueCategory  `json:"categories"`
 	Location     api.VenueLocation    `json:"location"`
-	Ratings      []api.VenueRating    `json:"ratings"`
 	Assets       []api.VenueAssets    `json:"assets"`
 	Population   api.VenuePopulation  `json:"population"`
 	IsSaved      bool                 `json:"is_saved"`
@@ -137,15 +138,6 @@ func (h *Handlers) getVenueDetails(ctx context.Context, venueID uuid.UUID, userI
 		Scan(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch venue location: %w", err)
-	}
-
-	// Fetch ratings
-	err = h.DB.NewSelect().
-		Model(&details.Ratings).
-		Where("venue_id = ?", venueID).
-		Scan(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch venue ratings: %w", err)
 	}
 
 	// Fetch assets
@@ -564,52 +556,57 @@ func (h *Handlers) handleGetVenue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) handleBulkGetVenue(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
-    userID := ctx.Value(middleware.UserIDKey).(uuid.UUID)
+	ctx := r.Context()
 
-    var request struct {
-        Venues []string `json:"venues"`
-    }
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
 
-    if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-        http.Error(w, "Invalid request body", http.StatusBadRequest)
-        return
-    }
+	var request struct {
+		Venues []string `json:"venues"`
+	}
 
-    if len(request.Venues) == 0 {
-        http.Error(w, "No venue IDs provided", http.StatusBadRequest)
-        return
-    }
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
 
-    venueIDs := make([]uuid.UUID, 0, len(request.Venues))
-    for _, idStr := range request.Venues {
-        id, err := uuid.Parse(idStr)
-        if err != nil {
-            http.Error(w, fmt.Sprintf("Invalid venue ID: %s", idStr), http.StatusBadRequest)
-            return
-        }
-        venueIDs = append(venueIDs, id)
-    }
+	if len(request.Venues) == 0 {
+		http.Error(w, "No venue IDs provided", http.StatusBadRequest)
+		return
+	}
 
-    var response struct {
-        Venues []VenueDetails `json:"venues"`
-    }
+	venueIDs := make([]uuid.UUID, 0, len(request.Venues))
+	for _, idStr := range request.Venues {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Invalid venue ID: %s", idStr), http.StatusBadRequest)
+			return
+		}
+		venueIDs = append(venueIDs, id)
+	}
 
-    for _, venueID := range venueIDs {
-        details, err := h.getVenueDetails(ctx, venueID, userID)
-        if err != nil {
-            slog.Error("Error fetching venue details", "error", err, "venueID", venueID)
-            continue // Skip this venue and continue with others
-        }
-        response.Venues = append(response.Venues, *details)
-    }
+	var response struct {
+		Venues []VenueDetails `json:"venues"`
+	}
 
-    w.Header().Set("Content-Type", "application/json")
-    if err := json.NewEncoder(w).Encode(response); err != nil {
-        slog.Error("Error encoding response", "error", err)
-        http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-        return
-    }
+	for _, venueID := range venueIDs {
+		details, err := h.getVenueDetails(ctx, venueID, userID)
+		if err != nil {
+			slog.Error("Error fetching venue details", "error", err, "venueID", venueID)
+			continue // Skip this venue and continue with others
+		}
+		response.Venues = append(response.Venues, *details)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		slog.Error("Error encoding response", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *Handlers) handlePutVenue(w http.ResponseWriter, r *http.Request) {
@@ -729,6 +726,12 @@ func (h *Handlers) handleDeleteVenue(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) handleVenueSearch(w http.ResponseWriter, r *http.Request) {
 	var searchParams VenueSearchParams
 
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
 	// Parse JSON input
 	err := json.NewDecoder(r.Body).Decode(&searchParams)
 	if err != nil {
@@ -738,7 +741,7 @@ func (h *Handlers) handleVenueSearch(w http.ResponseWriter, r *http.Request) {
 
 	// Start building the query
 	query := h.DB.NewSelect().
-		Model((*api.Event)(nil)).
+		Model((*api.Venue)(nil)).
 		ColumnExpr("DISTINCT v.*").
 		Join("LEFT JOIN venue_locations AS vl ON v.location_id = vl.id").
 		Join("LEFT JOIN venue_categories AS vc ON v.id = vc.venue_id").
@@ -784,9 +787,39 @@ func (h *Handlers) handleVenueSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create a slice to store venue details
+	venueDetails := make([]*VenueDetails, 0, len(venues))
+
+	// Create error group for concurrent fetching
+	g, ctx := errgroup.WithContext(r.Context())
+	detailsMutex := &sync.Mutex{}
+
+	// Fetch details for each venue
+	for _, venue := range venues {
+		venue := venue // Create new variable for goroutine
+		g.Go(func() error {
+			details, err := h.getVenueDetails(ctx, venue.ID, userID)
+			if err != nil {
+				return fmt.Errorf("error fetching details for venue %s: %w", venue.ID, err)
+			}
+
+			detailsMutex.Lock()
+			venueDetails = append(venueDetails, details)
+			detailsMutex.Unlock()
+
+			return nil
+		})
+	}
+
+	// Wait for all detail fetches to complete
+	if err := g.Wait(); err != nil {
+		http.Error(w, "Error fetching venue details", http.StatusInternalServerError)
+		return
+	}
+
 	// Prepare the response
 	response := map[string]interface{}{
-		"events": venues,
+		"venues": venues,
 		"count":  len(venues),
 	}
 

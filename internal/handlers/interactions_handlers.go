@@ -105,7 +105,7 @@ func (h *Handlers) handleSaveItem(w http.ResponseWriter, r *http.Request) {
 	exists, err := h.DB.NewSelect().
 		Model((*api.SavedItem)(nil)).
 		Where("user_id = ?", userID).
-		Where("venue_id = ? OR event_id = ?", req.VenueID, req.EventID).
+		Where("venue_id = ? AND event_id = ?", req.VenueID, req.EventID).
 		Exists(r.Context())
 
 	if err != nil {
@@ -174,7 +174,7 @@ func (h *Handlers) handleUnsaveItem(w http.ResponseWriter, r *http.Request) {
 	result, err := h.DB.NewDelete().
 		Model((*api.SavedItem)(nil)).
 		Where("user_id = ?", userID).
-		Where("venue_id = ? OR event_id = ?", req.VenueID, req.EventID).
+		Where("venue_id = ? AND event_id = ?", req.VenueID, req.EventID).
 		Exec(r.Context())
 
 	if err != nil {
@@ -290,7 +290,7 @@ func (h *Handlers) handleSubscribeItem(w http.ResponseWriter, r *http.Request) {
 	exists, err := h.DB.NewSelect().
 		Model((*api.SubscribedItem)(nil)).
 		Where("user_id = ?", userID).
-		Where("venue_id = ? OR event_id = ?", req.VenueID, req.EventID).
+		Where("venue_id = ? AND event_id = ?", req.VenueID, req.EventID).
 		Exists(r.Context())
 
 	if err != nil {
@@ -357,7 +357,7 @@ func (h *Handlers) handleUnsubscribeItem(w http.ResponseWriter, r *http.Request)
 	result, err := h.DB.NewDelete().
 		Model((*api.SubscribedItem)(nil)).
 		Where("user_id = ?", userID).
-		Where("venue_id = ? OR event_id = ?", req.VenueID, req.EventID).
+		Where("venue_id = ? AND event_id = ?", req.VenueID, req.EventID).
 		Exec(r.Context())
 
 	if err != nil {
@@ -479,7 +479,7 @@ func (h *Handlers) handleVisitItem(w http.ResponseWriter, r *http.Request) {
 	err := h.DB.NewSelect().
 		Model(&existingVisit).
 		Where("user_id = ?", userID).
-		Where("venue_id = ? OR event_id = ?", req.VenueID, req.EventID).
+		Where("venue_id = ? AND event_id = ?", req.VenueID, req.EventID).
 		Scan(r.Context())
 
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -521,7 +521,7 @@ func (h *Handlers) handleVisitItem(w http.ResponseWriter, r *http.Request) {
 			Set("visit_count = visit_count + 1").
 			Set("last_visited = ?", now).
 			Where("user_id = ?", userID).
-			Where("venue_id = ? OR event_id = ?", req.VenueID, req.EventID).
+			Where("venue_id = ? AND event_id = ?", req.VenueID, req.EventID).
 			Exec(r.Context())
 		if err != nil {
 			http.Error(w, "Failed to record visit", http.StatusInternalServerError)
@@ -554,7 +554,7 @@ func (h *Handlers) handleGetSharedItems(w http.ResponseWriter, r *http.Request) 
 	var sharedItems []api.SharedItem
 	err := h.DB.NewSelect().
 		Model(&sharedItems).
-		Where("from_user_id = ? OR to_user_id = ?", userID, userID).
+		Where("from_user_id = ? AND to_user_id = ?", userID, userID).
 		Scan(r.Context())
 
 	if err != nil {
@@ -642,7 +642,7 @@ func (h *Handlers) handleShareItem(w http.ResponseWriter, r *http.Request) {
 		Model(&existingShare).
 		Where("from_user_id = ?", fromUserID).
 		Where("to_user_id = ?", req.ToUserID).
-		Where("venue_id = ? OR event_id = ?", req.VenueID, req.EventID).
+		Where("venue_id = ? AND event_id = ?", req.VenueID, req.EventID).
 		Scan(r.Context())
 
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -670,7 +670,7 @@ func (h *Handlers) handleShareItem(w http.ResponseWriter, r *http.Request) {
 			Model(&existingShare).
 			Where("from_user_id = ?", existingShare.FromUserID).
 			Where("to_user_id = ?", existingShare.ToUserID).
-			Where("venue_id = ? OR event_id = ?", existingShare.VenueID, existingShare.EventID).
+			Where("venue_id = ? AND event_id = ?", existingShare.VenueID, existingShare.EventID).
 			Set("time_shared = ?", time.Now()).
 			Exec(r.Context())
 	}

@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/roundtown-app/roundtown-api/api"
 	"github.com/roundtown-app/roundtown-api/internal/middleware"
@@ -571,52 +573,52 @@ func (h *Handlers) handleGetEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) handleBulkGetEvent(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
-    userID := ctx.Value(middleware.UserIDKey).(uuid.UUID)
+	ctx := r.Context()
+	userID := ctx.Value(middleware.UserIDKey).(uuid.UUID)
 
-    var request struct {
-        Events []string `json:"events"`
-    }
+	var request struct {
+		Events []string `json:"events"`
+	}
 
-    if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-        http.Error(w, "Invalid request body", http.StatusBadRequest)
-        return
-    }
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
 
-    if len(request.Events) == 0 {
-        http.Error(w, "No event IDs provided", http.StatusBadRequest)
-        return
-    }
+	if len(request.Events) == 0 {
+		http.Error(w, "No event IDs provided", http.StatusBadRequest)
+		return
+	}
 
-    eventIDs := make([]uuid.UUID, 0, len(request.Events))
-    for _, idStr := range request.Events {
-        id, err := uuid.Parse(idStr)
-        if err != nil {
-            http.Error(w, fmt.Sprintf("Invalid event ID: %s", idStr), http.StatusBadRequest)
-            return
-        }
-        eventIDs = append(eventIDs, id)
-    }
+	eventIDs := make([]uuid.UUID, 0, len(request.Events))
+	for _, idStr := range request.Events {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Invalid event ID: %s", idStr), http.StatusBadRequest)
+			return
+		}
+		eventIDs = append(eventIDs, id)
+	}
 
-    var response struct {
-        Events []EventDetails `json:"events"`
-    }
+	var response struct {
+		Events []EventDetails `json:"events"`
+	}
 
-    for _, eventID := range eventIDs {
-        details, err := h.getEventDetails(ctx, eventID, userID)
-        if err != nil {
-            slog.Error("Error fetching event details", "error", err, "eventID", eventID)
-            continue // Skip this event and continue with others
-        }
-        response.Events = append(response.Events, *details)
-    }
+	for _, eventID := range eventIDs {
+		details, err := h.getEventDetails(ctx, eventID, userID)
+		if err != nil {
+			slog.Error("Error fetching event details", "error", err, "eventID", eventID)
+			continue // Skip this event and continue with others
+		}
+		response.Events = append(response.Events, *details)
+	}
 
-    w.Header().Set("Content-Type", "application/json")
-    if err := json.NewEncoder(w).Encode(response); err != nil {
-        slog.Error("Error encoding response", "error", err)
-        http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-        return
-    }
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		slog.Error("Error encoding response", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
@@ -736,6 +738,13 @@ func (h *Handlers) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 	var searchParams EventSearchParams
 
+	// Get userID from context
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if userID == uuid.Nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
 	// Parse JSON input
 	err := json.NewDecoder(r.Body).Decode(&searchParams)
 	if err != nil {
@@ -804,13 +813,44 @@ func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 	err = query.Scan(r.Context(), &events)
 	if err != nil {
 		http.Error(w, "Error executing search query", http.StatusInternalServerError)
+		slog.Error("handleEventSearch: error executing search query: " + err.Error())
+		return
+	}
+
+	// Create a slice to store event details
+	eventDetails := make([]*EventDetails, 0, len(events))
+
+	// Create error group for concurrent fetching
+	g, ctx := errgroup.WithContext(r.Context())
+	detailsMutex := &sync.Mutex{}
+
+	// Fetch details for each event
+	for _, event := range events {
+		event := event // Create new variable for goroutine
+		g.Go(func() error {
+			details, err := h.getEventDetails(ctx, event.ID, userID)
+			if err != nil {
+				return fmt.Errorf("error fetching details for event %s: %w", event.ID, err)
+			}
+
+			detailsMutex.Lock()
+			eventDetails = append(eventDetails, details)
+			detailsMutex.Unlock()
+
+			return nil
+		})
+	}
+
+	// Wait for all detail fetches to complete
+	if err := g.Wait(); err != nil {
+		http.Error(w, "Error fetching event details", http.StatusInternalServerError)
 		return
 	}
 
 	// Prepare the response
 	response := map[string]interface{}{
-		"events": events,
-		"count":  len(events),
+		"events": eventDetails,
+		"count":  len(eventDetails),
 	}
 
 	// Send JSON response
