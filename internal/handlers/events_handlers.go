@@ -79,7 +79,7 @@ type EventSearchParams struct {
 	VenueID                *uuid.UUID `json:"venue_id"`
 	VenueTitle             *string    `json:"venue_title"`
 	OwnerID                *uuid.UUID `json:"owner_id"`
-	Category               *string    `json:"category"`
+	Categories             *[]string  `json:"categories"`
 	PopulationUserCountMin *int       `json:"population_user_count_min"`
 	PopulationUserCountMax *int       `json:"population_user_count_max"`
 }
@@ -798,8 +798,8 @@ func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 	if searchParams.OwnerID != nil {
 		query = query.Where("e.owner_id = ?", *searchParams.OwnerID)
 	}
-	if searchParams.Category != nil {
-		query = query.Where("ec.category = ?", *searchParams.Category)
+	if searchParams.Categories != nil && len(*searchParams.Categories) > 0 {
+		query = query.Where("ec.category IN (?)", bun.In(*searchParams.Categories))
 	}
 	if searchParams.PopulationUserCountMin != nil {
 		query = query.Where("ep.user_count >= ?", *searchParams.PopulationUserCountMin)
