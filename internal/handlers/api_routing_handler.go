@@ -55,9 +55,9 @@ func (h *Handlers) Handler(router *chi.Mux) {
 		})
 
 		apiRouter.Route("/recommendations", func(recRouter chi.Router) {
-			recRouter.Get("/feed-recs/{userID}", h.handleGetFeedRec)
-			recRouter.Get("/plan-recs/{userID}", h.handleGetPlanRec)
-			recRouter.Get("/event-based-recs/{userID}", h.handleGetEBRec)
+			recRouter.Post("/feed-recs/{userID}", h.handleGetFeedRec)
+			//recRouter.Get("/plan-recs/{userID}", h.handleGetPlanRec)
+			//recRouter.Get("/event-based-recs/{userID}", h.handleGetEBRec)
 		})
 
 		apiRouter.Route("/interactions", func(intRouter chi.Router) {
