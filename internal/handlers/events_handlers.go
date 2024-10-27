@@ -82,6 +82,7 @@ type EventSearchParams struct {
 	Categories             *[]string  `json:"categories"`
 	PopulationUserCountMin *int       `json:"population_user_count_min"`
 	PopulationUserCountMax *int       `json:"population_user_count_max"`
+	IsSaved                *bool      `json:"is_saved"`
 }
 
 // ----- POST helper struct -----
@@ -806,6 +807,9 @@ func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	if searchParams.PopulationUserCountMax != nil {
 		query = query.Where("ep.user_count <= ?", *searchParams.PopulationUserCountMax)
+	}
+	if searchParams.IsSaved != nil && *searchParams.IsSaved {
+		query = query.Join("INNER JOIN saved_items AS si ON e.id = si.event_id AND si.user_id = ?", userID)
 	}
 
 	// Execute the query

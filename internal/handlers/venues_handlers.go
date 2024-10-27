@@ -73,6 +73,8 @@ type VenueSearchParams struct {
 	Categories             *[]string  `json:"categories"`
 	PopulationUserCountMin *int       `json:"population_user_count_min"`
 	PopulationUserCountMax *int       `json:"population_user_count_max"`
+	HasFutureEvents        *bool      `json:"has_future_events"`
+	IsSaved                *bool      `json:"is_saved"`
 }
 
 // ----- POST helper struct -----
@@ -778,6 +780,12 @@ func (h *Handlers) handleVenueSearch(w http.ResponseWriter, r *http.Request) {
 	if searchParams.PopulationUserCountMax != nil {
 		query = query.Where("vp.user_count <= ?", *searchParams.PopulationUserCountMax)
 	}
+	if searchParams.HasFutureEvents != nil && *searchParams.HasFutureEvents {
+		query = query.Where("EXISTS (SELECT 1 FROM events e WHERE e.venue_id = v.id AND e.ending_time > NOW())")
+	}
+	if searchParams.IsSaved != nil && *searchParams.IsSaved {
+		query = query.Join("INNER JOIN saved_items AS si ON v.id = si.venue_id AND si.user_id = ?", userID)
+	}
 
 	// Execute the query
 	var venues []api.Venue
@@ -819,8 +827,8 @@ func (h *Handlers) handleVenueSearch(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare the response
 	response := map[string]interface{}{
-		"venues": venues,
-		"count":  len(venues),
+		"venues": venueDetails,
+		"count":  len(venueDetails),
 	}
 
 	// Send JSON response

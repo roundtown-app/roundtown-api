@@ -62,7 +62,7 @@ func main() {
 
 	slog.Info("Started Roundtown API")
 
-	err = http.ListenAndServe("localhost:8080", router)
+	err = http.ListenAndServe("0.0.0.0:8080", router)
 
 	slog.Error(err.Error())
 }
