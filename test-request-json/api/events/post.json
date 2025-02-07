@@ -1,0 +1,31 @@
+{
+  "title": "food 2024",
+  "description": "Annual food conference featuring industry leaders and innovative startups",
+  "detailed": "Join us for three days of cutting-edge presentations, workshops, and networking opportunities...",
+  "location": {
+      "longitude": 123.456,
+      "latitude": 78.9,
+      "address": "123 Main St"
+  },
+  "categories": [
+      "conference",
+      "food"
+  ],
+  "price": 4,
+  "sponsor": 1,
+  "is_deal": false,
+  "starting_time": "2024-09-15T09:00:00Z",
+  "ending_time": "2024-09-17T18:00:00Z",
+  "venue_id": "019255af-3a7f-7870-9d4b-f53223878ec2",
+  "owner_id": "019254f1-11c5-76ed-b1a5-6f79748ed44c",
+  "assets": [
+      "idk",
+      "idk2"
+  ],
+  "recurrence_pattern": {
+      "frequency": "WEEKLY",
+      "days_of_week": [3],
+      "start_date": "2024-09-15T09:00:00Z",
+      "end_date": "2025-09-15T09:00:00Z"
+  }
+}

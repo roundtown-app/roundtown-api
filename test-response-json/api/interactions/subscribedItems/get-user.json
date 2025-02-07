@@ -1,0 +1,68 @@
+[
+  {
+    "venue": {
+      "ID": "00000000-0000-0000-0000-000000000000",
+      "Title": "",
+      "Logo": "",
+      "Description": "",
+      "Detailed": "",
+      "LocationID": "00000000-0000-0000-0000-000000000000",
+      "ActivityCount": 0,
+      "Price": 0,
+      "Sponsor": 0,
+      "Hidden": false,
+      "CreatedAt": "0001-01-01T00:00:00Z",
+      "OwnerID": "00000000-0000-0000-0000-000000000000"
+    },
+    "event": {
+      "ID": "00000000-0000-0000-0000-000000000000",
+      "Title": "",
+      "Tag": "",
+      "Description": "",
+      "Detailed": "",
+      "LocationID": "00000000-0000-0000-0000-000000000000",
+      "ActivityCount": 0,
+      "Price": 0,
+      "Sponsor": 0,
+      "IsDeal": false,
+      "StartingTime": "0001-01-01T00:00:00Z",
+      "EndingTime": "0001-01-01T00:00:00Z",
+      "VenueID": "00000000-0000-0000-0000-000000000000",
+      "CreatedAt": "0001-01-01T00:00:00Z",
+      "OwnerID": "00000000-0000-0000-0000-000000000000"
+    }
+  },
+  {
+    "venue": {
+      "ID": "00000000-0000-0000-0000-000000000000",
+      "Title": "",
+      "Logo": "",
+      "Description": "",
+      "Detailed": "",
+      "LocationID": "00000000-0000-0000-0000-000000000000",
+      "ActivityCount": 0,
+      "Price": 0,
+      "Sponsor": 0,
+      "Hidden": false,
+      "CreatedAt": "0001-01-01T00:00:00Z",
+      "OwnerID": "00000000-0000-0000-0000-000000000000"
+    },
+    "event": {
+      "ID": "01925a93-b8ea-70f2-b259-75e6a06f15d5",
+      "Title": "food 2024",
+      "Tag": "",
+      "Description": "Annual food conference featuring industry leaders and innovative startups",
+      "Detailed": "Join us for three days of cutting-edge presentations, workshops, and networking opportunities...",
+      "LocationID": "01925a93-b8ea-70fa-9b20-5a02ba771932",
+      "ActivityCount": 0,
+      "Price": 4,
+      "Sponsor": 1,
+      "IsDeal": false,
+      "StartingTime": "2024-09-15T05:00:00-04:00",
+      "EndingTime": "2024-09-17T14:00:00-04:00",
+      "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+      "CreatedAt": "2024-10-04T22:48:03.562066-04:00",
+      "OwnerID": "019254f1-11c5-76ed-b1a5-6f79748ed44c"
+    }
+  }
+]

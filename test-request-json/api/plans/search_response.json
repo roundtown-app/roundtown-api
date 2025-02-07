@@ -1,0 +1,14 @@
+[
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "title": "Weekend Getaway",
+      "date": "2024-07-15T10:00:00Z",
+      "creator_id": "98765432-e89b-12d3-a456-426614174000"
+    },
+    {
+      "id": "aaaabbbb-cccc-dddd-eeee-ffff00001111",
+      "title": "Weekend Party",
+      "date": "2024-07-15T20:00:00Z",
+      "creator_id": "98765432-e89b-12d3-a456-426614174000"
+    }
+  ]

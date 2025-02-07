@@ -1,0 +1,74 @@
+{
+  "venue": {
+      "ID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+      "Title": "My Venue",
+      "Description": "A great venue",
+      "Detailed": "Detailed description here",
+      "LocationID": "019255af-3a7f-7874-945c-57f4e97f042a",
+      "ActivityCount": 0,
+      "Price": 100,
+      "Sponsor": 1,
+      "Hidden": false,
+      "CreatedAt": "2024-10-04T00:00:00.127554-04:00",
+      "OwnerID": "019254f1-11c5-76ed-b1a5-6f79748ed44c"
+  },
+  "categories": [
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "Category": "sports"
+      },
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "Category": "entertainment"
+      }
+  ],
+  "location": {
+      "ID": "019255af-3a7f-7874-945c-57f4e97f042a",
+      "Longitude": 123.456,
+      "Latitude": 78.9,
+      "Address": "123 Main St"
+  },
+  "ratings": null,
+  "assets": [
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "AssetID": "asset1"
+      },
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "AssetID": "asset2"
+      }
+  ],
+  "population": {
+      "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+      "UserCount": 0,
+      "LastUpdated": "2024-10-04T00:00:00.13453-04:00"
+  },
+  "is_saved": false,
+  "is_visited": false,
+  "is_shared_from": false,
+  "is_shared_to": false,
+  "exceptions": [
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "ExceptionDate": "2024-12-25T00:00:00Z",
+          "IsClosed": true,
+          "AlternateStartingTime": "0001-01-01T00:00:00Z",
+          "AlternateEndingTime": "0001-01-01T00:00:00Z",
+          "Venue": null
+      }
+  ],
+  "hours": [
+      {
+          "VenueID": "019255af-3a7f-7870-9d4b-f53223878ec2",
+          "Type": {
+              "String": "regular",
+              "Valid": true
+          },
+          "Day": 1,
+          "OpeningTime": "0000-01-01T00:00:00Z",
+          "ClosingTime": "0000-01-01T00:00:00Z",
+          "IsClosed": false
+      }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+    "title": "Updated Weekend Getaway",
+    "date": "2024-07-16T12:00:00Z",
+    "private": true,
+    "items": [
+      {
+        "id": "abcdef12-3456-7890-abcd-ef1234567890",
+        "title": "Book luxury hotel",
+        "description": "Find and reserve a 5-star hotel for the weekend",
+        "completed": false
+      },
+      {
+        "id": "fedcba98-7654-3210-fedc-ba9876543210",
+        "title": "Pack bags",
+        "description": "Pack clothes and essentials for the trip",
+        "completed": true
+      },
+      {
+        "id": "11111111-2222-3333-4444-555555555555",
+        "title": "Arrange transportation",
+        "description": "Book flights or rent a car",
+        "completed": false
+      }
+    ],
+    "users": [
+      "98765432-e89b-12d3-a456-426614174000",
+      "11111111-2222-3333-4444-555555555555",
+      "22222222-3333-4444-5555-666666666666"
+    ]
+  }

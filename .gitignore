@@ -1,1 +1,9 @@
 main
+.env
+credentials.json
+service_account.json
+
+.venv
+Pipfile
+
+*.tar

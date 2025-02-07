@@ -1,0 +1,31 @@
+{
+  "title": "My Venue",
+  "description": "A great venue",
+  "detailed": "Detailed description here",
+  "location": {
+    "longitude": 123.456,
+    "latitude": 78.90,
+    "address": "123 Main St"
+  },
+  "categories": ["sports", "entertainment"],
+  "price": 100,
+  "sponsor": 1,
+  "hidden": false,
+  "owner_id": "019254f1-11c5-76ed-b1a5-6f79748ed44c",
+  "assets": ["asset1", "asset2"],
+  "hours": [
+    {
+      "type": "regular",
+      "day": 1,
+      "opening_time": "09:00",
+      "closing_time": "17:00",
+      "is_closed": false
+    }
+  ],
+  "exceptions": [
+    {
+      "exception_date": "2024-12-25",
+      "is_closed": true
+    }
+  ]
+}
