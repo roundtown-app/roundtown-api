@@ -50,6 +50,7 @@ type EventUpdate struct {
 	StartingTime      *time.Time                  `json:"starting_time"`
 	EndingTime        *time.Time                  `json:"ending_time"`
 	VenueID           *uuid.UUID                  `json:"venue_id"`
+	QRCode            *string                     `json:"qr_code"`
 	Categories        []string                    `json:"categories"`
 	Location          *EventLocationUpdate        `json:"location"`
 	Assets            []string                    `json:"assets"`
@@ -105,6 +106,7 @@ type EventRequest struct {
 	EndingTime        string   `json:"ending_time"`
 	VenueID           string   `json:"venue_id"`
 	OwnerID           string   `json:"owner_id"`
+	QRCode            string   `json:"qr_code"`
 	Assets            []string `json:"assets"`
 	RecurrencePattern struct {
 		Frequency   string `json:"frequency"`
@@ -282,6 +284,7 @@ func (h *Handlers) updateEvent(ctx context.Context, tx bun.Tx, eventID uuid.UUID
 		Set("starting_time = COALESCE(?, starting_time)", update.StartingTime).
 		Set("ending_time = COALESCE(?, ending_time)", update.EndingTime).
 		Set("venue_id = COALESCE(?, venue_id)", update.VenueID).
+		Set("qr_code = COALESCE(?, qr_code)", update.QRCode).
 		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to update event: %w", err)
@@ -552,6 +555,7 @@ func (h *Handlers) handleGetEvent(w http.ResponseWriter, r *http.Request) {
 
 	eventID, err := uuid.Parse(eventIDStr)
 	if err != nil {
+		slog.Error("handleGetEvent - error parsing event ID: " + err.Error())
 		http.Error(w, "Invalid Event ID", http.StatusBadRequest)
 		return
 	}
@@ -560,14 +564,15 @@ func (h *Handlers) handleGetEvent(w http.ResponseWriter, r *http.Request) {
 
 	details, err := h.getEventDetails(ctx, eventID, userID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error fetching event details: %v", err), http.StatusInternalServerError)
+		slog.Error("handleGetEvent - error fetching event details: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(details)
 	if err != nil {
-		slog.Error("Error encoding response", "error", err)
+		slog.Error("handleGetEvent - failed to encode event details: " + err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -582,11 +587,13 @@ func (h *Handlers) handleBulkGetEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		slog.Error("handleBulkGetEvent - invalid request body: " + err.Error())
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	if len(request.Events) == 0 {
+		slog.Error("handleBulkGetEvent - no event IDs provided")
 		http.Error(w, "No event IDs provided", http.StatusBadRequest)
 		return
 	}
@@ -595,6 +602,7 @@ func (h *Handlers) handleBulkGetEvent(w http.ResponseWriter, r *http.Request) {
 	for _, idStr := range request.Events {
 		id, err := uuid.Parse(idStr)
 		if err != nil {
+			slog.Error("handleBulkGetEvent - invalid event ID: " + err.Error())
 			http.Error(w, fmt.Sprintf("Invalid event ID: %s", idStr), http.StatusBadRequest)
 			return
 		}
@@ -608,7 +616,7 @@ func (h *Handlers) handleBulkGetEvent(w http.ResponseWriter, r *http.Request) {
 	for _, eventID := range eventIDs {
 		details, err := h.getEventDetails(ctx, eventID, userID)
 		if err != nil {
-			slog.Error("Error fetching event details", "error", err, "eventID", eventID)
+			slog.Error("handleBulkGetEvent - failed to get event details: " + err.Error())
 			continue // Skip this event and continue with others
 		}
 		response.Events = append(response.Events, *details)
@@ -616,7 +624,7 @@ func (h *Handlers) handleBulkGetEvent(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		slog.Error("Error encoding response", "error", err)
+		slog.Error("handleBulkGetEvent - failed to encode response: " + err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -628,6 +636,7 @@ func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
 
 	eventID, err := uuid.Parse(eventIDStr)
 	if err != nil {
+		slog.Error("handlePutEvent - invalid event ID: " + err.Error())
 		http.Error(w, "Invalid Event ID", http.StatusBadRequest)
 		return
 	}
@@ -635,6 +644,7 @@ func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
 	// Get userID from context
 	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
 	if userID == uuid.Nil {
+		slog.Error("handlePutEvent - user not authenticated")
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -642,10 +652,12 @@ func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
 	// Check if the user is the owner of the event
 	isOwner, err := h.isEventOwner(r.Context(), eventID, userID)
 	if err != nil {
-		http.Error(w, "Error checking event ownership", http.StatusInternalServerError)
+		slog.Error("handlePutEvent - error checking event ownership: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 	if !isOwner {
+		slog.Error("handlePutEvent - " + userID.String() + " attempted to modify event " + eventID.String())
 		http.Error(w, "User not authorized to update this event", http.StatusForbidden)
 		return
 	}
@@ -654,6 +666,7 @@ func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
 	var update EventUpdate
 	err = json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
+		slog.Error("handlePutEvent - could not parse request body: " + err.Error())
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -661,7 +674,8 @@ func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
 	// Start a transaction
 	tx, err := h.DB.Begin()
 	if err != nil {
-		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		slog.Error("handlePutEvent - failed to start transaction: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 	defer tx.Rollback()
@@ -669,13 +683,15 @@ func (h *Handlers) handlePutEvent(w http.ResponseWriter, r *http.Request) {
 	// Update the event
 	err = h.updateEvent(ctx, tx, eventID, &update)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error updating event: %v", err), http.StatusInternalServerError)
+		slog.Error("handlePutEvent - failed to update event: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	// Commit the transaction
 	if err := tx.Commit(); err != nil {
-		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+		slog.Error("handlePutEvent - failed to commit tx: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -689,6 +705,7 @@ func (h *Handlers) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
 
 	eventID, err := uuid.Parse(eventIDStr)
 	if err != nil {
+		slog.Error("handleDeleteEvent - invalid event ID: " + err.Error())
 		http.Error(w, "Invalid Event ID", http.StatusBadRequest)
 		return
 	}
@@ -696,6 +713,7 @@ func (h *Handlers) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
 	// Get userID from context
 	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
 	if userID == uuid.Nil {
+		slog.Error("handleDeleteEvent - user not authenticated")
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -703,10 +721,12 @@ func (h *Handlers) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
 	// Check if the user is the owner of the event
 	isOwner, err := h.isEventOwner(ctx, eventID, userID)
 	if err != nil {
-		http.Error(w, "Error checking event ownership", http.StatusInternalServerError)
+		slog.Error("handleDeleteEvent - failed to check if user is event owner: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 	if !isOwner {
+		slog.Error("handleDeleteEvent - " + userID.String() + " attempted to delete " + eventID.String())
 		http.Error(w, "User not authorized to update this event", http.StatusForbidden)
 		return
 	}
@@ -714,7 +734,8 @@ func (h *Handlers) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
 	// Start a transaction
 	tx, err := h.DB.Begin()
 	if err != nil {
-		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		slog.Error("handleDeleteEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 	defer tx.Rollback()
@@ -722,13 +743,15 @@ func (h *Handlers) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
 	// Delete the event
 	err = h.DeleteEvent(ctx, tx, eventID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error deleting event: %v", err), http.StatusInternalServerError)
+		slog.Error("handleDeleteEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	// Commit the transaction
 	if err := tx.Commit(); err != nil {
-		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+		slog.Error("handleDeleteEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -742,6 +765,7 @@ func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 	// Get userID from context
 	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
 	if userID == uuid.Nil {
+		slog.Error("handleEventSearch - user not authenticated")
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -749,6 +773,7 @@ func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 	// Parse JSON input
 	err := json.NewDecoder(r.Body).Decode(&searchParams)
 	if err != nil {
+		slog.Error("handleEventSearch - " + err.Error())
 		http.Error(w, "Invalid JSON input", http.StatusBadRequest)
 		return
 	}
@@ -788,7 +813,7 @@ func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("e.starting_time >= ?", *searchParams.StartingTime)
 	}
 	if searchParams.EndingTime != nil {
-		query = query.Where("e.ending_time <= ?", *searchParams.EndingTime)
+		query = query.Where("e.ending_time <= ?", *searchParams.EndingTime).Where("e.ending_time >= NOW()")
 	}
 	if searchParams.VenueID != nil {
 		query = query.Where("e.venue_id = ?", *searchParams.VenueID)
@@ -816,8 +841,8 @@ func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 	var events []api.Event
 	err = query.Scan(r.Context(), &events)
 	if err != nil {
-		http.Error(w, "Error executing search query", http.StatusInternalServerError)
-		slog.Error("handleEventSearch: error executing search query: " + err.Error())
+		slog.Error("handleEventSearch - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -847,7 +872,8 @@ func (h *Handlers) handleEventSearch(w http.ResponseWriter, r *http.Request) {
 
 	// Wait for all detail fetches to complete
 	if err := g.Wait(); err != nil {
-		http.Error(w, "Error fetching event details", http.StatusInternalServerError)
+		slog.Error("handleEventSearch - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -866,7 +892,7 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 	// Get userID from context
 	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
 	if userID == uuid.Nil {
-		slog.Error(userID.String() + " could not be auth'd")
+		slog.Error("handlePostEvent - user could not be authenticated")
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
@@ -874,7 +900,7 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 	// Check that the user is either a business or admin
 	user_account_type := r.Context().Value(middleware.AccountTypeKey).(string)
 	if !(user_account_type == "business" || user_account_type == "admin") {
-		slog.Error(userID.String() + " is not a business or admin, so they cannot create a new event")
+		slog.Error("handlePostEvent - " + userID.String() + " is not a business or admin, so they cannot create a new event")
 		http.Error(w, "User does not have permission", http.StatusUnauthorized)
 		return
 	}
@@ -882,7 +908,7 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 	// Decode request body
 	var req EventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		slog.Error(err.Error())
+		slog.Error("handlePostEvent - " + err.Error())
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -890,20 +916,21 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 	// Check that the user owns the venue for which they're creating an event
 	isOwner, err := h.isVenueOwner(r.Context(), uuid.MustParse(req.VenueID), userID)
 	if err != nil {
-		slog.Error(err.Error())
+		slog.Error("handlePostEvent - " + err.Error())
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 	if !isOwner {
-		http.Error(w, "User does not have permission to create an event for given venue", http.StatusUnauthorized)
+		slog.Error("handlePostEvent - user does not have permission to create an event for given venue")
+		http.Error(w, "User does not have permission", http.StatusUnauthorized)
 		return
 	}
 
 	// Start a transaction
 	tx, err := h.DB.BeginTx(r.Context(), nil)
 	if err != nil {
-		slog.Error(err.Error())
-		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		slog.Error("handlePostEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 	defer tx.Rollback()
@@ -911,37 +938,37 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 	// Generate UUIDs
 	new_event_id, err := uuid.NewV7()
 	if err != nil {
-		slog.Error(err.Error())
-		http.Error(w, "Failed to generate UUID", http.StatusInternalServerError)
+		slog.Error("handlePostEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	new_event_location_id, err := uuid.NewV7()
 	if err != nil {
-		slog.Error(err.Error())
-		http.Error(w, "Failed to generate UUID", http.StatusInternalServerError)
+		slog.Error("handlePostEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	// Create event
 	startTime, err := time.Parse(time.RFC3339, req.StartingTime)
 	if err != nil {
-		slog.Error(err.Error())
-		http.Error(w, "Failed to parse StartingTime", http.StatusInternalServerError)
+		slog.Error("handlePostEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	endTime, err := time.Parse(time.RFC3339, req.EndingTime)
 	if err != nil {
-		slog.Error(err.Error())
-		http.Error(w, "Failed to parse EndingTime", http.StatusInternalServerError)
+		slog.Error("handlePostEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	venueId, err := uuid.Parse(req.VenueID)
 	if err != nil {
-		slog.Error(err.Error())
-		http.Error(w, "Failed to parse Venue UUID", http.StatusInternalServerError)
+		slog.Error("handlePostEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -963,8 +990,8 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := tx.NewInsert().Model(event).Exec(r.Context()); err != nil {
-		slog.Error(err.Error())
-		http.Error(w, "Failed to create event", http.StatusInternalServerError)
+		slog.Error("handlePostEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -977,8 +1004,8 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := tx.NewInsert().Model(location).Exec(r.Context()); err != nil {
-		slog.Error(err.Error())
-		http.Error(w, "Failed to create event location", http.StatusInternalServerError)
+		slog.Error("handlePostEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -992,8 +1019,8 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if _, err := tx.NewInsert().Model(&categories).Exec(r.Context()); err != nil {
-			slog.Error(err.Error())
-			http.Error(w, "Failed to create event categories", http.StatusInternalServerError)
+			slog.Error("handlePostEvent - " + err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -1008,8 +1035,8 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if _, err := tx.NewInsert().Model(&assets).Exec(r.Context()); err != nil {
-			slog.Error(err.Error())
-			http.Error(w, "Failed to create event assets", http.StatusInternalServerError)
+			slog.Error("handlePostEvent - " + err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -1028,8 +1055,8 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 			EndDate:     endDate,
 		}
 		if _, err := tx.NewInsert().Model(&pattern).Exec(r.Context()); err != nil {
-			slog.Error(err.Error())
-			http.Error(w, "Failed to create event recurrence pattern", http.StatusInternalServerError)
+			slog.Error("handlePostEvent - " + err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -1051,8 +1078,8 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if _, err := tx.NewInsert().Model(&exceptions).Exec(r.Context()); err != nil {
-			slog.Error(err.Error())
-			http.Error(w, "Failed to create event exceptions", http.StatusInternalServerError)
+			slog.Error("handlePostEvent - " + err.Error())
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -1064,15 +1091,15 @@ func (h *Handlers) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 		LastUpdated: time.Now(),
 	}
 	if _, err := tx.NewInsert().Model(population).Exec(r.Context()); err != nil {
-		slog.Error(err.Error())
-		http.Error(w, "Failed to create event population", http.StatusInternalServerError)
+		slog.Error("handlePostEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		slog.Error(err.Error())
-		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+		slog.Error("handlePostEvent - " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 

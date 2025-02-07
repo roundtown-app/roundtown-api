@@ -52,7 +52,7 @@ docker system prune -a
 
 docker load < api[YYYYMMDD-rev].tar
 
-docker run -d -p 8080:8080 api
+docker run -d -p 80:8080 api
 
 docker ps -a   // make sure it's running
 ```

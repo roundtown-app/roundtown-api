@@ -11,6 +11,7 @@ func (h *Handlers) Handler(router *chi.Mux) {
 	router.Use(chi_middleware.StripSlashes)
 
 	router.Get("/heartbeat", h.handleHeartbeat)
+	router.Get("/qr-code", h.handleQRCodeScan)
 
 	router.Route("/api", func(apiRouter chi.Router) {
 		apiRouter.Use(middleware.Authorization(h.AuthClient, h.DB.DB))

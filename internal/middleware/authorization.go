@@ -94,9 +94,10 @@ func createNewUser(ctx context.Context, db *bun.DB, firebaseAuth *auth.Client, f
 	}
 
 	// Ensure we have a username from Firebase
-	if firebaseUser.DisplayName == "" {
-		return api.User{}, fmt.Errorf("firebase user has no display name set")
-	}
+	// Commenting this code out to enable support for anon users
+	// if firebaseUser.DisplayName == "" {
+	// 	return api.User{}, fmt.Errorf("firebase user has no display name set")
+	// }
 
 	// Create new user
 	user := api.User{

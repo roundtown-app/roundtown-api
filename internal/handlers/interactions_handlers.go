@@ -30,8 +30,8 @@ type SavedItemResponse struct {
 func (h *Handlers) handleGetSavedItems(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
 	if userID == uuid.Nil {
+		slog.Error("handleGetSavedItems - user not authenticated")
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
-		slog.Error("handleGetSavedItems: user not authenticated")
 		return
 	}
 
@@ -42,8 +42,8 @@ func (h *Handlers) handleGetSavedItems(w http.ResponseWriter, r *http.Request) {
 		Scan(r.Context())
 
 	if err != nil {
-		http.Error(w, "Failed to fetch saved items", http.StatusInternalServerError)
-		slog.Error("handleGetSavedItems: failed to fetch saved items")
+		slog.Error("handleGetSavedItems - failed to fetch saved items: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -57,7 +57,7 @@ func (h *Handlers) handleGetSavedItems(w http.ResponseWriter, r *http.Request) {
 				Where("id = ?", savedItem.EventID).
 				Scan(r.Context())
 			if err != nil {
-				slog.Error("failed to fetch saved event: " + err.Error())
+				slog.Error("handleGetSavedItems - failed to fetch saved event: " + err.Error())
 			}
 			response = append(response, SavedItemResponse{
 				Event: &eventItem,
@@ -68,7 +68,7 @@ func (h *Handlers) handleGetSavedItems(w http.ResponseWriter, r *http.Request) {
 				Where("id = ?", savedItem.VenueID).
 				Scan(r.Context())
 			if err != nil {
-				slog.Error("failed to fetch saved venue: " + err.Error())
+				slog.Error("handleGetSavedItems - failed to fetch saved venue: " + err.Error())
 			}
 			response = append(response, SavedItemResponse{
 				Venue: &venueItem,
@@ -83,21 +83,22 @@ func (h *Handlers) handleGetSavedItems(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) handleSaveItem(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
 	if userID == uuid.Nil {
+		slog.Error("handleSaveItem - user not authenticated")
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
-		slog.Error("handleSaveItem: user not authenticated")
 		return
 	}
 
 	var req SaveItemRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		slog.Error("handleSaveItem - invalid request body: " + err.Error())
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		slog.Error("handleSaveItem: invalid request body")
 		return
 	}
 
 	if req.VenueID == uuid.Nil && req.EventID == uuid.Nil {
-		http.Error(w, "Either venue_id or event_id must be provided", http.StatusBadRequest)
 		slog.Error("handleSaveItem: venue_id and event_id both nil")
+		http.Error(w, "Either venue_id or event_id must be provided", http.StatusBadRequest)
 		return
 	}
 
@@ -109,22 +110,22 @@ func (h *Handlers) handleSaveItem(w http.ResponseWriter, r *http.Request) {
 		Exists(r.Context())
 
 	if err != nil {
-		http.Error(w, "Failed to check if item exists", http.StatusInternalServerError)
-		slog.Error("handleSaveItem: failed to check if item exists")
+		slog.Error("handleSaveItem - failed to check if item exists: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	if exists {
+		slog.Error("handleSaveItem - item already saved")
 		http.Error(w, "Item already saved", http.StatusConflict)
-		slog.Error("handleSaveItem: item already saved")
 		return
 	}
 
 	// Create new saved item
 	new_saved_item_id, err := uuid.NewV7()
 	if err != nil {
-		slog.Error(err.Error())
-		http.Error(w, "Failed to generate UUID", http.StatusInternalServerError)
+		slog.Error("handleSaveItem - failed to generate UUID: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -140,8 +141,8 @@ func (h *Handlers) handleSaveItem(w http.ResponseWriter, r *http.Request) {
 		Exec(r.Context())
 
 	if err != nil {
-		http.Error(w, "Failed to save item", http.StatusInternalServerError)
-		slog.Error("handleSaveItem: failed to save item: " + err.Error())
+		slog.Error("handleSaveItem - failed to save item: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -153,21 +154,21 @@ func (h *Handlers) handleSaveItem(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) handleUnsaveItem(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
 	if userID == uuid.Nil {
+		slog.Error("handleUnsaveItem - user not authenticated")
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
-		slog.Error("handleUnsaveItem: user not authenticated")
 		return
 	}
 
 	var req SaveItemRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Error("handleUnsaveItem - invalid request body: " + err.Error())
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		slog.Error("handleUnsaveItem: invalid request body: " + err.Error())
 		return
 	}
 
 	if req.VenueID == uuid.Nil && req.EventID == uuid.Nil {
+		slog.Error("handleUnsaveItem - both venue_id and event_id are nil")
 		http.Error(w, "Either venue_id or event_id must be provided", http.StatusBadRequest)
-		slog.Error("handleUnsaveItem: both venue_id and event_id are nil")
 		return
 	}
 
@@ -178,21 +179,21 @@ func (h *Handlers) handleUnsaveItem(w http.ResponseWriter, r *http.Request) {
 		Exec(r.Context())
 
 	if err != nil {
-		http.Error(w, "Failed to unsave item", http.StatusInternalServerError)
-		slog.Error("handleUnsaveItem: failed to unsave item")
+		slog.Error("handleUnsaveItem - failed to unsave item: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		http.Error(w, "Failed to get rows affected", http.StatusInternalServerError)
-		slog.Error("handleUnsaveItem: failed to get rows affected")
+		slog.Error("handleUnsaveItem - failed to get rows affected: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	if rowsAffected == 0 {
+		slog.Error("handleUnsaveItem - item not found")
 		http.Error(w, "Item not found", http.StatusNotFound)
-		slog.Error("handleUnsaveItem: item not found")
 		return
 	}
 
@@ -215,8 +216,8 @@ type SubscribedItemResponse struct {
 func (h *Handlers) handleGetSubscribedItems(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
 	if userID == uuid.Nil {
+		slog.Error("handleGetSubscribedItems - user not authenticated")
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
-		slog.Error("handleGetSubscribedItems: user not authenticated")
 		return
 	}
 
@@ -227,8 +228,8 @@ func (h *Handlers) handleGetSubscribedItems(w http.ResponseWriter, r *http.Reque
 		Scan(r.Context())
 
 	if err != nil {
-		http.Error(w, "Failed to fetch subscribed items", http.StatusInternalServerError)
-		slog.Error("handleGetSubscribedItems: failed to fetch subscribed items: " + err.Error())
+		slog.Error("handleGetSubscribedItems - failed to fetch subscribed items: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -242,7 +243,7 @@ func (h *Handlers) handleGetSubscribedItems(w http.ResponseWriter, r *http.Reque
 				Where("id = ?", item.EventID).
 				Scan(r.Context())
 			if err != nil {
-				slog.Error("failed to fetch subscribed event: " + err.Error())
+				slog.Error("handleGetSubscribedItems - failed to fetch subscribed event: " + err.Error())
 			}
 			response = append(response, SubscribedItemResponse{
 				Event: eventItem,
@@ -253,7 +254,7 @@ func (h *Handlers) handleGetSubscribedItems(w http.ResponseWriter, r *http.Reque
 				Where("id = ?", item.VenueID).
 				Scan(r.Context())
 			if err != nil {
-				slog.Error("failed to fetch subscribed venue: " + err.Error())
+				slog.Error("handleGetSubscribedItems - failed to fetch subscribed venue: " + err.Error())
 			}
 			response = append(response, SubscribedItemResponse{
 				Venue: venueItem,
@@ -268,15 +269,16 @@ func (h *Handlers) handleGetSubscribedItems(w http.ResponseWriter, r *http.Reque
 func (h *Handlers) handleSubscribeItem(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
 	if userID == uuid.Nil {
+		slog.Error("handleSubscribeItem - user not authenticated")
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
-		slog.Error("handleSubscribeItem: user not authenticated")
 		return
 	}
 
 	var req SubscribedItemRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		slog.Error("handleSubscribeItem - invalid request body: " + err.Error())
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		slog.Error("handleSubscribeItem: invalid request body")
 		return
 	}
 
@@ -384,11 +386,9 @@ func (h *Handlers) handleUnsubscribeItem(w http.ResponseWriter, r *http.Request)
 
 // VisitedItemResponse represents the response for visited items
 type VisitedItemResponse struct {
-	Venue        *api.Venue `json:"venue,omitempty"`
-	Event        *api.Event `json:"event,omitempty"`
-	VisitCount   int        `json:"visit_count"`
-	FirstVisited time.Time  `json:"first_visited"`
-	LastVisited  time.Time  `json:"last_visited"`
+	Venue       *api.Venue `json:"venue,omitempty"`
+	Event       *api.Event `json:"event,omitempty"`
+	VisitedTime time.Time  `json:"visited_time"`
 }
 
 // handleGetVisitedItems retrieves all visited items for the authenticated user
@@ -425,10 +425,8 @@ func (h *Handlers) handleGetVisitedItems(w http.ResponseWriter, r *http.Request)
 				slog.Error("failed to fetch visited event: " + err.Error())
 			}
 			response = append(response, VisitedItemResponse{
-				Event:        &eventItem,
-				VisitCount:   item.VisitCount,
-				FirstVisited: item.FirstVisited,
-				LastVisited:  item.LastVisited,
+				Event:       &eventItem,
+				VisitedTime: item.VisitedTime,
 			})
 		} else {
 			err = h.DB.NewSelect().
@@ -439,10 +437,8 @@ func (h *Handlers) handleGetVisitedItems(w http.ResponseWriter, r *http.Request)
 				slog.Error("failed to fetch visited venue: " + err.Error())
 			}
 			response = append(response, VisitedItemResponse{
-				Venue:        &venueItem,
-				VisitCount:   item.VisitCount,
-				FirstVisited: item.FirstVisited,
-				LastVisited:  item.LastVisited,
+				Venue:       &venueItem,
+				VisitedTime: item.VisitedTime,
 			})
 		}
 	}
@@ -475,60 +471,60 @@ func (h *Handlers) handleVisitItem(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
 	// Check if item has been visited before
-	var existingVisit api.VisitedItem
-	err := h.DB.NewSelect().
-		Model(&existingVisit).
-		Where("user_id = ?", userID).
-		Where("venue_id = ? AND event_id = ?", req.VenueID, req.EventID).
-		Scan(r.Context())
+	// var existingVisit api.VisitedItem
+	// err := h.DB.NewSelect().
+	// 	Model(&existingVisit).
+	// 	Where("user_id = ?", userID).
+	// 	Where("venue_id = ? AND event_id = ?", req.VenueID, req.EventID).
+	// 	Scan(r.Context())
 
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		http.Error(w, "Failed to check visit history", http.StatusInternalServerError)
-		slog.Error("handleVisitItem: failed to check visit history")
+	// if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	// 	http.Error(w, "Failed to check visit history", http.StatusInternalServerError)
+	// 	slog.Error("handleVisitItem: failed to check visit history")
+	// 	return
+	// }
+
+	//if errors.Is(err, sql.ErrNoRows) {
+	// First visit
+	new_visited_item_id, err := uuid.NewV7()
+	if err != nil {
+		slog.Error("handleVisitItem - failed to generate new UUID: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
-	if errors.Is(err, sql.ErrNoRows) {
-		// First visit
-		new_visited_item_id, err := uuid.NewV7()
-		if err != nil {
-			slog.Error(err.Error())
-			http.Error(w, "Failed to generate UUID", http.StatusInternalServerError)
-			return
-		}
-		visitedItem := &api.VisitedItem{
-			ID:           new_visited_item_id,
-			UserID:       userID,
-			VenueID:      req.VenueID,
-			EventID:      req.EventID,
-			VisitCount:   1,
-			FirstVisited: now,
-			LastVisited:  now,
-		}
-
-		_, err = h.DB.NewInsert().
-			Model(visitedItem).
-			Exec(r.Context())
-		if err != nil {
-			http.Error(w, "Failed to record visit", http.StatusInternalServerError)
-			slog.Error("handleVisitItem: failed to record visit: " + err.Error())
-			return
-		}
-	} else {
-		// Update existing visit
-		_, err = h.DB.NewUpdate().
-			Model(&existingVisit).
-			Set("visit_count = visit_count + 1").
-			Set("last_visited = ?", now).
-			Where("user_id = ?", userID).
-			Where("venue_id = ? AND event_id = ?", req.VenueID, req.EventID).
-			Exec(r.Context())
-		if err != nil {
-			http.Error(w, "Failed to record visit", http.StatusInternalServerError)
-			slog.Error("handleVisitItem: failed to record visit: " + err.Error())
-			return
-		}
+	visitedItem := &api.VisitedItem{
+		ID:          new_visited_item_id,
+		UserID:      userID,
+		VenueID:     req.VenueID,
+		EventID:     req.EventID,
+		VisitedTime: now,
+		QRCode:      false,
 	}
+
+	_, err = h.DB.NewInsert().
+		Model(visitedItem).
+		Exec(r.Context())
+	if err != nil {
+		slog.Error("handleVisitItem - failed to record visit: " + err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	// }
+	// else {
+	// 	// Update existing visit
+	// 	_, err = h.DB.NewUpdate().
+	// 		Model(&existingVisit).
+	// 		Set("visit_count = visit_count + 1").
+	// 		Set("last_visited = ?", now).
+	// 		Where("user_id = ?", userID).
+	// 		Where("venue_id = ? AND event_id = ?", req.VenueID, req.EventID).
+	// 		Exec(r.Context())
+	// 	if err != nil {
+	// 		http.Error(w, "Failed to record visit", http.StatusInternalServerError)
+	// 		slog.Error("handleVisitItem: failed to record visit: " + err.Error())
+	// 		return
+	// 	}
+	// }
 
 	w.WriteHeader(http.StatusNoContent)
 }

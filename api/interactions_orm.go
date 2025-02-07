@@ -28,13 +28,12 @@ type SubscribedItem struct {
 type VisitedItem struct {
 	bun.BaseModel `bun:"table:visited_items,alias:vi"`
 
-	ID           uuid.UUID `bun:"id,pk"`
-	UserID       uuid.UUID `bun:"user_id,notnull"`
-	VenueID      uuid.UUID `bun:"venue_id"`
-	EventID      uuid.UUID `bun:"event_id"`
-	VisitCount   int       `bun:"visit_count,nullzero"`
-	FirstVisited time.Time `bun:"first_visited,nullzero,default:current_timestamp"`
-	LastVisited  time.Time `bun:"last_visited,nullzero,default:current_timestamp"`
+	ID          uuid.UUID `bun:"id,pk"`
+	UserID      uuid.UUID `bun:"user_id,notnull"`
+	VenueID     uuid.UUID `bun:"venue_id"`
+	EventID     uuid.UUID `bun:"event_id"`
+	VisitedTime time.Time `bun:"visited_time,nullzero,default:current_timestamp"`
+	QRCode      bool      `bun:"qr_code"`
 }
 
 type SharedItem struct {
