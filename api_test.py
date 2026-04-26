@@ -8,7 +8,7 @@ import psycopg2
 from psycopg2 import sql
 
 # Firebase configuration
-FIREBASE_WEB_API_KEY = 'AIzaSyA8PMxaKKasISGvPO6az2jhHJ5Tgh5BRfI'
+FIREBASE_WEB_API_KEY = os.environ("FIREBASE_KEY")
 FIREBASE_PROJECT_ID = 'roundtown-a0579'
 
 # PostgreSQL configuration

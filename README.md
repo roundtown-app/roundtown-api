@@ -1,7 +1,7 @@
 # roundtown-api
-This is the source code for the API that handles virtually all requests.
+Roundtown was an iOS app for discovering local events and deals. This is the backend API, written in Go, that powered the platform - handling user authentication, event/venue data, location-based queries, and recommendations. Deployed on AWS Lightsail via Docker.
 
-It will cover the following:
+It covers the following:
 * Events
 * Venues
 * Plans
@@ -22,7 +22,7 @@ go build cmd/api/main.go
 
 I recommend Postman for interacting with the API. When making a request, go to the Authorization tab, select type Bearer token, then paste the token from get_auth_token.py. JSON can be added to the request via the Body tab.
 
-To see the endpoints, go to ./internal/handlers/handler.go
+To see the endpoints, go to ./internal/handlers/api_routing_handler.go
 To see the ORM structs, go to ./api
 
 ### Deployment

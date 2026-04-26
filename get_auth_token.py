@@ -2,15 +2,16 @@ import json
 import requests
 import firebase_admin
 from firebase_admin import credentials, auth
+import os
 
 # Replace with your Firebase project credentials
-api_key = "AIzaSyA8PMxaKKasISGvPO6az2jhHJ5Tgh5BRfI"
+api_key = os.environ("FIREBASE_KEY")
 firebase_project_id = "roundtown-a0579"
 
 
 def sign_in_with_email_and_password(email, password, return_secure_token=True):
     payload = json.dumps({"email":email, "password":password, "return_secure_token":return_secure_token})
-    FIREBASE_WEB_API_KEY = 'AIzaSyA8PMxaKKasISGvPO6az2jhHJ5Tgh5BRfI' 
+    FIREBASE_WEB_API_KEY = os.environ("FIREBASE_WEB_API_KEY")
     rest_api_url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
 
     r = requests.post(rest_api_url,
